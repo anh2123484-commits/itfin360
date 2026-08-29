@@ -29,11 +29,40 @@ Next.js 15 · TypeScript estricto · PostgreSQL 16 con RLS · Prisma · tRPC + R
 
 ```bash
 pnpm install
+cp .env.example .env
 pnpm db:up          # Postgres + Redis + MinIO
 pnpm db:migrate
 pnpm db:seed        # tenant de demostración, datos ficticios
 pnpm dev
 ```
+
+## Entorno de desarrollo local
+
+Requisitos: Node ≥ 20.11 (`.nvmrc`), pnpm 9 y Docker con el plugin `compose`.
+
+`docker-compose.yml` levanta los tres servicios de desarrollo. Todos tienen *healthcheck*, así que
+`pnpm db:up` no termina hasta que los tres están sanos, y después crea el bucket de MinIO.
+
+| Servicio | Imagen | Puerto (por defecto) | Credenciales de desarrollo |
+|---|---|---|---|
+| PostgreSQL 16 | `postgres:16-alpine` | `5432` | `itfin360` / `itfin360`, base `itfin360` |
+| Redis 7 | `redis:7-alpine` | `6379` | sin contraseña |
+| MinIO (S3) | `minio/minio` | `9000` API · `9001` consola | `itfin360` / `itfin360dev`, bucket `itfin360-dev` |
+
+Consola de MinIO: <http://localhost:9001>.
+
+```bash
+pnpm db:up      # arranca los tres servicios y espera a que estén sanos
+pnpm db:down    # los para y elimina los contenedores (los datos persisten)
+pnpm db:reset   # borra también los volúmenes y vuelve a levantar todo desde cero
+```
+
+La configuración se toma de `.env` (copia de `.env.example`, que declara **todas** las variables:
+`DATABASE_URL`, `REDIS_URL`, `S3_*`, puertos y credenciales). `pnpm db:up` lo crea a partir del
+ejemplo si no existe. `.env` está en `.gitignore`: nunca se comitea.
+
+Los puertos son configurables por variable de entorno (`POSTGRES_PORT`, `REDIS_PORT`,
+`MINIO_API_PORT`, `MINIO_CONSOLE_PORT`) si alguno está ocupado en tu máquina.
 
 ## Sembrar el backlog en GitHub
 
