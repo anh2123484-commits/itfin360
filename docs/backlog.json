@@ -1,0 +1,675 @@
+[
+  {
+    "id": "F0-01",
+    "title": "Scaffold del monorepo",
+    "phase": "Fase 0 · Fundaciones",
+    "size": "L",
+    "deps": [],
+    "description": "pnpm workspaces + Turborepo con `apps/web` (Next.js 15, App Router, TS strict), `apps/worker`, `packages/{finance-core,db,connectors,ui,config}`. Tailwind + shadcn/ui. ESLint + Prettier compartidos.",
+    "acceptance": "`pnpm install && pnpm build` verde en limpio; `pnpm dev` sirve una home vacía; TS `strict: true` y `noUncheckedIndexedAccess: true`; sin `any` en el repo."
+  },
+  {
+    "id": "F0-02",
+    "title": "Docker compose de desarrollo",
+    "phase": "Fase 0 · Fundaciones",
+    "size": "S",
+    "deps": [
+      "F0-01"
+    ],
+    "description": "Postgres 16, Redis 7, MinIO. Scripts `db:up`, `db:down`, `db:reset`. `.env.example` completo.",
+    "acceptance": "un `pnpm db:up` desde cero deja los tres servicios sanos y documentados en el README."
+  },
+  {
+    "id": "F0-03",
+    "title": "CI en GitHub Actions",
+    "phase": "Fase 0 · Fundaciones",
+    "size": "M",
+    "deps": [
+      "F0-02"
+    ],
+    "description": "Workflow: install (cache pnpm) → lint → typecheck → test (con servicios) → build. Gate de cobertura sobre `packages/finance-core` (≥ 95 %). Comprobación automática de que toda tabla nueva de una migración tiene política RLS.",
+    "acceptance": "el workflow pasa en `main` y falla de verdad si se introduce un `any`, si baja la cobertura o si se crea una tabla sin RLS (añade un test que lo demuestre)."
+  },
+  {
+    "id": "F0-04",
+    "title": "Prisma + esquema base de tenancy",
+    "phase": "Fase 0 · Fundaciones",
+    "size": "M",
+    "deps": [
+      "F0-02"
+    ],
+    "description": "`packages/db` con `Tenant`, `TenantParamVersion`, `User`, `Membership`, `AuditLog`. Migración inicial.",
+    "acceptance": "`pnpm db:migrate` limpio; cliente Prisma exportado y tipado."
+  },
+  {
+    "id": "F0-05",
+    "title": "RLS y contexto de tenant",
+    "phase": "Fase 0 · Fundaciones",
+    "size": "L",
+    "deps": [
+      "F0-04"
+    ],
+    "description": "Rol de aplicación sin `BYPASSRLS`; política `tenant_isolation` en cada tabla; extensión de cliente Prisma con `withTenant(tenantId, cb)` que hace `set local app.current_tenant`. Helper de migración que genera la política.",
+    "acceptance": "test de integración con Testcontainers: dos tenants con datos; ninguna consulta, agregado o `count` del tenant A ve nada de B; una consulta fuera de contexto devuelve 0 filas. Este test se amplía en cada fase con los modelos nuevos."
+  },
+  {
+    "id": "F0-06",
+    "title": "Auth.js, organizaciones y RBAC",
+    "phase": "Fase 0 · Fundaciones",
+    "size": "L",
+    "deps": [
+      "F0-05"
+    ],
+    "description": "Login por email (magic link) + contraseña, alta de tenant, invitaciones, cambio de tenant activo. Middleware que resuelve el tenant y el rol. `can(permission)` en servidor. `canViewCompensation` como permiso independiente.",
+    "acceptance": "test por rol de la matriz de `docs/01-prd-y-alcance.md`; un usuario sin permiso recibe 403 del **servidor**, no un `hidden` en el cliente."
+  },
+  {
+    "id": "F0-07",
+    "title": "Auditoría y log estructurado",
+    "phase": "Fase 0 · Fundaciones",
+    "size": "S",
+    "deps": [
+      "F0-06"
+    ],
+    "description": "`AuditLog` append-only (sin `UPDATE`/`DELETE` para el rol de aplicación), helper `audit()`, logger con redacción de PII.",
+    "acceptance": "test que intenta modificar un registro de auditoría y falla a nivel de base de datos; test que comprueba que un importe retributivo nunca aparece en el log."
+  },
+  {
+    "id": "F0-08",
+    "title": "Cola BullMQ y worker",
+    "phase": "Fase 0 · Fundaciones",
+    "size": "M",
+    "deps": [
+      "F0-02"
+    ],
+    "description": "`apps/worker` con colas `imports`, `ocr`, `connectors`, `recalc`, `alerts`. Reintentos con backoff, cola de fallidos, panel de estado interno.",
+    "acceptance": "un job de prueba encolado desde web se ejecuta en el worker; un job que falla 3 veces acaba en la cola de fallidos y queda visible."
+  },
+  {
+    "id": "F1-01",
+    "title": "Primitivas monetarias",
+    "phase": "Fase 1 · Motor de cálculo",
+    "size": "S",
+    "deps": [
+      "F0-01"
+    ],
+    "description": "`Cents` con marca de tipo, `roundHalfUp`, conversión de divisa con tipo persistido, reparto por mayor resto.",
+    "acceptance": "repartir 10.001 céntimos entre 3 devuelve `[3334, 3334, 3333]` y suma exacta; propiedad probada con 1.000 casos aleatorios."
+  },
+  {
+    "id": "F1-02",
+    "title": "Normalización de recurrentes y devengo",
+    "phase": "Fase 1 · Motor de cálculo",
+    "size": "S",
+    "deps": [
+      "F1-01"
+    ],
+    "description": "`normalizeRecurring`, `accrualSpread` (prorrateo por días naturales).",
+    "acceptance": "factura anual de 12.000 € con servicio 15/01–14/01 reparte correctamente y la suma de los meses es exactamente el total."
+  },
+  {
+    "id": "F1-03",
+    "title": "Amortización",
+    "phase": "Fase 1 · Motor de cálculo",
+    "size": "M",
+    "deps": [
+      "F1-01"
+    ],
+    "description": "`depreciationSchedule` lineal con valor residual y prorrateo del primer mes; VNC; `technicalDebt`.",
+    "acceptance": "servidor de 12.000 €, residual 0, 60 meses, alta el 15/03 → cuota 200 €/mes y primer mes prorrateado 200 € × 17/31 = 109,68 €; el cuadro completo suma exactamente 12.000 €."
+  },
+  {
+    "id": "F1-04",
+    "title": "Coste empresa y tarifa horaria",
+    "phase": "Fase 1 · Motor de cálculo",
+    "size": "M",
+    "deps": [
+      "F1-01"
+    ],
+    "description": "`employerCost`, `internalHourlyRate`, tarifa por rol ponderada por FTE.",
+    "acceptance": "reproduce el caso de referencia del doc 02 (60.940 € y 49,93 €/h) al céntimo."
+  },
+  {
+    "id": "F1-05",
+    "title": "Utilización y run/change",
+    "phase": "Fase 1 · Motor de cálculo",
+    "size": "S",
+    "deps": [
+      "F1-04"
+    ],
+    "description": "`utilization`, `%run`, `%change`, coste no imputado.",
+    "acceptance": "casos con horas parciales, bajas y empleados a tiempo parcial."
+  },
+  {
+    "id": "F1-06",
+    "title": "TCO y reparto",
+    "phase": "Fase 1 · Motor de cálculo",
+    "size": "L",
+    "deps": [
+      "F1-03",
+      "F1-04"
+    ],
+    "description": "`serviceTco`, `allocate` con los 8 drivers, reparto en cascada, **detección de ciclos** con error explícito.",
+    "acceptance": "una configuración cíclica lanza `AllocationCycleError` nombrando las reglas implicadas; el total repartido es exactamente el total de origen."
+  },
+  {
+    "id": "F1-07",
+    "title": "EVM",
+    "phase": "Fase 1 · Motor de cálculo",
+    "size": "M",
+    "deps": [
+      "F1-01"
+    ],
+    "description": "`evm` completo, null-safe cuando `AC=0` o `PV=0`; avance por hitos ponderados y regla 0/50/100.",
+    "acceptance": "caso de libro (BAC 100k, EV 40k, AC 50k, PV 45k → CPI 0,8; SPI 0,889; EAC 125k; VAC −25k) y casos degenerados devuelven `null`, no `Infinity`."
+  },
+  {
+    "id": "F1-08",
+    "title": "Coste del retraso",
+    "phase": "Fase 1 · Motor de cálculo",
+    "size": "M",
+    "deps": [
+      "F1-04",
+      "F1-07"
+    ],
+    "description": "`costOfDelay` con los cinco componentes y acumulación día a día con la composición real del equipo.",
+    "acceptance": "reproduce el caso de referencia (1.662,10 €/día · 49.863 € a 30 días); un proyecto sin beneficio esperado ni legacy sólo suma equipo retenido."
+  },
+  {
+    "id": "F1-09",
+    "title": "Forecast y escenarios",
+    "phase": "Fase 1 · Motor de cálculo",
+    "size": "M",
+    "deps": [
+      "F1-02",
+      "F1-03",
+      "F1-07"
+    ],
+    "description": "`forecast` (real + recurrentes restantes + ETC + amortizaciones + comprometido) y aplicación de *overrides* de escenario sin tocar datos reales.",
+    "acceptance": "un escenario que cancela un contrato en julio reduce el forecast exactamente en los meses restantes y deja el real intacto."
+  },
+  {
+    "id": "F1-10",
+    "title": "IT Viability Score",
+    "phase": "Fase 1 · Motor de cálculo",
+    "size": "L",
+    "deps": [
+      "F1-05",
+      "F1-06",
+      "F1-07"
+    ],
+    "description": "Normalización por bandas, pesos, `INSUFFICIENT_DATA` con redistribución de pesos y `% de cobertura`, desglose con trazabilidad.",
+    "acceptance": "sin benchmarks cargados, los indicadores 1 y 5 quedan excluidos y el score informa de la cobertura; cada indicador devuelve valor, normalizado, peso, contribución y los ids de origen."
+  },
+  {
+    "id": "F2-01",
+    "title": "Modelo de proveedores, facturas y líneas",
+    "phase": "Fase 2 · Ingesta de costes",
+    "size": "M",
+    "deps": [
+      "F0-05"
+    ],
+    "description": "Migración + RLS + repositorios. Unicidad `(tenant, vendor, invoiceNumber)`.",
+    "acceptance": "el test de aislamiento de F0-05 ampliado a los modelos nuevos."
+  },
+  {
+    "id": "F2-02",
+    "title": "CRUD de facturas y flujo de aprobación",
+    "phase": "Fase 2 · Ingesta de costes",
+    "size": "L",
+    "deps": [
+      "F2-01",
+      "F0-06"
+    ],
+    "description": "Alta/edición, estados `DRAFT → PENDING_REVIEW → APPROVED → POSTED`, rechazo, marcado de duplicado. Imputación de línea a servicio / centro de coste / proyecto / activo.",
+    "acceptance": "transiciones inválidas rechazadas en servidor; toda transición auditada; sólo `FINANCE`/`OWNER` aprueban."
+  },
+  {
+    "id": "F2-03",
+    "title": "Detección de duplicados",
+    "phase": "Fase 2 · Ingesta de costes",
+    "size": "M",
+    "deps": [
+      "F2-02"
+    ],
+    "description": "Exacto por número de factura y difuso por `(proveedor, importe, fecha ±5 días)`.",
+    "acceptance": "alta de un duplicado exacto → 409 con referencia a la factura existente; el difuso avisa pero no bloquea."
+  },
+  {
+    "id": "F2-04",
+    "title": "Importación CSV/Excel con mapeo",
+    "phase": "Fase 2 · Ingesta de costes",
+    "size": "L",
+    "deps": [
+      "F2-02",
+      "F0-08"
+    ],
+    "description": "Subida, detección de cabeceras, mapeo de columnas guardable como plantilla, previsualización, validación fila a fila, importación en job con informe de errores descargable.",
+    "acceptance": "un CSV de 5.000 filas con 12 filas inválidas importa 4.988 y devuelve el informe; la operación es reanudable y no duplica al reintentar."
+  },
+  {
+    "id": "F2-05",
+    "title": "Explorador de costes (UI)",
+    "phase": "Fase 2 · Ingesta de costes",
+    "size": "L",
+    "deps": [
+      "F2-02"
+    ],
+    "description": "Tabla con filtros (periodo, proveedor, servicio, tipo, estado), agrupaciones, totales y drill-down hasta el PDF.",
+    "acceptance": "100.000 líneas paginadas por cursor sin degradar; los totales cuadran con la suma de la base."
+  },
+  {
+    "id": "F3-01",
+    "title": "Contratos y recurrentes",
+    "phase": "Fase 3 · Contratos e inmovilizado",
+    "size": "M",
+    "deps": [
+      "F2-01"
+    ],
+    "description": "Modelo, CRUD, coste normalizado, vinculación factura↔contrato, calendario de renovaciones.",
+    "acceptance": "un contrato trimestral de 900 € muestra 300 €/mes y 3.600 €/año."
+  },
+  {
+    "id": "F3-02",
+    "title": "Desperdicio de licencias y subidas de precio",
+    "phase": "Fase 3 · Contratos e inmovilizado",
+    "size": "M",
+    "deps": [
+      "F3-01"
+    ],
+    "description": "`licensedSeats` vs `activeSeats` → coste desperdiciado; comparación de precio contra el periodo anterior.",
+    "acceptance": "alerta `LICENSE_WASTE` cuando el desperdicio supera el umbral configurado; alerta `PRICE_INCREASE` con el delta y el porcentaje."
+  },
+  {
+    "id": "F3-03",
+    "title": "Registro de activos",
+    "phase": "Fase 3 · Contratos e inmovilizado",
+    "size": "M",
+    "deps": [
+      "F2-01"
+    ],
+    "description": "Modelo, CRUD, asignación a servicio/centro de coste/empleado, alta desde línea de factura, baja con resultado.",
+    "acceptance": "dar de alta un activo desde una línea `CAPEX` evita el doble cómputo de esa línea como OPEX (test explícito)."
+  },
+  {
+    "id": "F3-04",
+    "title": "Amortización automática mensual",
+    "phase": "Fase 3 · Contratos e inmovilizado",
+    "size": "M",
+    "deps": [
+      "F3-03",
+      "F1-03"
+    ],
+    "description": "Job que genera `DepreciationEntry`; idempotente por `(asset, period)`.",
+    "acceptance": "ejecutar el job dos veces sobre el mismo periodo no duplica; el acumulado nunca supera la base amortizable."
+  },
+  {
+    "id": "F3-05",
+    "title": "Panel de inmovilizado",
+    "phase": "Fase 3 · Contratos e inmovilizado",
+    "size": "M",
+    "deps": [
+      "F3-04"
+    ],
+    "description": "Parque por categoría, edad, VNC, deuda técnica, próximas reposiciones y su encaje en presupuesto.",
+    "acceptance": "activos que superan su vida útil aparecen con el coste de reposición estimado y la fórmula usada visible."
+  },
+  {
+    "id": "F4-01",
+    "title": "Puestos y empleados",
+    "phase": "Fase 4 · Personal y productividad",
+    "size": "M",
+    "deps": [
+      "F0-06"
+    ],
+    "description": "Modelo, CRUD, FTE, altas y bajas con vigencias.",
+    "acceptance": "un empleado que causa baja a mitad de año prorratea correctamente en los cálculos anuales."
+  },
+  {
+    "id": "F4-02",
+    "title": "Retribución cifrada y auditada",
+    "phase": "Fase 4 · Personal y productividad",
+    "size": "L",
+    "deps": [
+      "F4-01",
+      "F0-07"
+    ],
+    "description": "`CompensationRecord` con cifrado de columna, vigencias, acceso tras `canViewCompensation`, auditoría por lectura.",
+    "acceptance": "un usuario sin permiso recibe bandas, no importes; un agregado sobre 3 empleados devuelve `SUPPRESSED`; cada lectura individual deja registro; los importes están cifrados en disco (verificado leyendo la tabla en crudo)."
+  },
+  {
+    "id": "F4-03",
+    "title": "Parámetros de coste y tarifas",
+    "phase": "Fase 4 · Personal y productividad",
+    "size": "M",
+    "deps": [
+      "F4-02",
+      "F1-04"
+    ],
+    "description": "Configuración por tenant y por año (tasa SS desglosada, jornada, vacaciones, factor de productividad), cálculo de coste empresa y tarifas.",
+    "acceptance": "cambiar la tasa de 2027 no altera los resultados ya calculados de 2026."
+  },
+  {
+    "id": "F4-04",
+    "title": "Imputación de horas",
+    "phase": "Fase 4 · Personal y productividad",
+    "size": "L",
+    "deps": [
+      "F4-01"
+    ],
+    "description": "Alta manual, parte semanal, importación CSV, marcado de retrabajo, validación de solapes y de exceso de jornada.",
+    "acceptance": "no se pueden imputar más horas de las disponibles en un día sin marcarlo como extra; importación masiva idempotente."
+  },
+  {
+    "id": "F4-05",
+    "title": "Panel de equipo",
+    "phase": "Fase 4 · Personal y productividad",
+    "size": "M",
+    "deps": [
+      "F4-03",
+      "F4-04",
+      "F1-05"
+    ],
+    "description": "Utilización, run/change, coste por rol, coste no imputado, ratio de recuperación por rol y equipo.",
+    "acceptance": "la vista compartida no permite ordenar personas por ratio de recuperación; sólo agregados por rol/equipo."
+  },
+  {
+    "id": "F5-01",
+    "title": "Proyectos, baselines e hitos",
+    "phase": "Fase 5 · Proyectos y desviaciones",
+    "size": "L",
+    "deps": [
+      "F4-04"
+    ],
+    "description": "Modelo, CRUD, baseline versionada con motivo y aprobador, hitos ponderados, cálculo de avance.",
+    "acceptance": "una re-baseline conserva la versión anterior; los pesos de hitos deben sumar 1 o el guardado falla."
+  },
+  {
+    "id": "F5-02",
+    "title": "Coste real de proyecto",
+    "phase": "Fase 5 · Proyectos y desviaciones",
+    "size": "M",
+    "deps": [
+      "F5-01",
+      "F2-02"
+    ],
+    "description": "Agregación de horas × tarifa + facturas imputadas + activos imputados.",
+    "acceptance": "el AC del proyecto cuadra con la suma de sus orígenes y hace drill-down hasta cada uno."
+  },
+  {
+    "id": "F5-03",
+    "title": "EVM en producto",
+    "phase": "Fase 5 · Proyectos y desviaciones",
+    "size": "M",
+    "deps": [
+      "F5-02",
+      "F1-07"
+    ],
+    "description": "Cálculo `asOf`, curva PV/EV/AC, semáforos por CPI/SPI configurables.",
+    "acceptance": "la curva coincide con el motor; un proyecto sin coste imputado no rompe la vista."
+  },
+  {
+    "id": "F5-04",
+    "title": "Eventos de retraso y coste del retraso",
+    "phase": "Fase 5 · Proyectos y desviaciones",
+    "size": "L",
+    "deps": [
+      "F5-03",
+      "F1-08"
+    ],
+    "description": "Registro de eventos con causa y FTE retenido, cálculo día a día, CoD acumulado, agrupación por causa.",
+    "acceptance": "reproduce el caso de referencia; el desglose muestra los cinco componentes por separado; los eventos solapados no cuentan dos veces el equipo retenido."
+  },
+  {
+    "id": "F5-05",
+    "title": "Change requests",
+    "phase": "Fase 5 · Proyectos y desviaciones",
+    "size": "M",
+    "deps": [
+      "F5-01"
+    ],
+    "description": "Alta con impacto en coste y plazo, flujo de aprobación, efecto en baseline al aprobarse.",
+    "acceptance": "aprobar un CR genera una nueva baseline vinculada al CR y deja la desviación contra la baseline inicial intacta."
+  },
+  {
+    "id": "F6-00",
+    "title": "Métricas operativas y benchmarks del tenant",
+    "phase": "Fase 6 · Consolidación, presupuesto y viabilidad",
+    "size": "M",
+    "deps": [
+      "F0-05"
+    ],
+    "description": "`OperationalMetric` (usuarios activos, dispositivos, tickets, GB, headcount, facturación de la empresa) con carga manual y por API, y `Benchmark` con las bandas de referencia que carga el propio tenant.",
+    "acceptance": "sin métricas cargadas, los KPI que dependen de ellas devuelven `INSUFFICIENT_DATA` en lugar de un número inventado; ningún benchmark está escrito en el código."
+  },
+  {
+    "id": "F6-01",
+    "title": "Tabla de hechos y job de recálculo",
+    "phase": "Fase 6 · Consolidación, presupuesto y viabilidad",
+    "size": "L",
+    "deps": [
+      "F2-02",
+      "F3-04",
+      "F4-04",
+      "F5-02"
+    ],
+    "description": "`CostFact` alimentada por un job idempotente y determinista por `(tenant, periodo)`, con trazabilidad al origen.",
+    "acceptance": "dos ejecuciones seguidas producen exactamente el mismo conjunto de hechos; el tiempo de recálculo de 18 meses con 50.000 registros se mide y se registra."
+  },
+  {
+    "id": "F6-02",
+    "title": "Reglas de reparto en producto",
+    "phase": "Fase 6 · Consolidación, presupuesto y viabilidad",
+    "size": "M",
+    "deps": [
+      "F6-01",
+      "F1-06"
+    ],
+    "description": "CRUD de reglas, orden, previsualización del reparto antes de aplicar.",
+    "acceptance": "la previsualización coincide con la aplicación; un ciclo se detecta en la previsualización, no en producción."
+  },
+  {
+    "id": "F6-03",
+    "title": "Presupuesto y variaciones",
+    "phase": "Fase 6 · Consolidación, presupuesto y viabilidad",
+    "size": "L",
+    "deps": [
+      "F6-01"
+    ],
+    "description": "Presupuesto anual por centro de coste/servicio/categoría con reparto mensual, real vs presupuesto vs forecast.",
+    "acceptance": "la suma de las 12 posiciones cuadra con el total de la línea; alerta `BUDGET_OVERRUN` al superar el umbral."
+  },
+  {
+    "id": "F6-04",
+    "title": "Escenarios",
+    "phase": "Fase 6 · Consolidación, presupuesto y viabilidad",
+    "size": "M",
+    "deps": [
+      "F6-03",
+      "F1-09"
+    ],
+    "description": "Crear, comparar y clonar escenarios; comparativa lado a lado.",
+    "acceptance": "ningún escenario escribe en tablas reales (test que lo comprueba tras aplicar overrides)."
+  },
+  {
+    "id": "F6-05",
+    "title": "Cierre de periodo",
+    "phase": "Fase 6 · Consolidación, presupuesto y viabilidad",
+    "size": "M",
+    "deps": [
+      "F6-01"
+    ],
+    "description": "`PeriodClose` que congela el periodo; los cambios posteriores generan ajuste fechado, no reescritura.",
+    "acceptance": "modificar una factura de un mes cerrado crea un ajuste en el mes abierto y deja el cerrado intacto; sólo `FINANCE`/`OWNER` cierran."
+  },
+  {
+    "id": "F6-06",
+    "title": "Viability Score en producto",
+    "phase": "Fase 6 · Consolidación, presupuesto y viabilidad",
+    "size": "L",
+    "deps": [
+      "F6-00",
+      "F6-02",
+      "F1-10"
+    ],
+    "description": "Cálculo por periodo, tarjeta de score, desglose por indicador, drill-down, gestión de bandas y benchmarks del tenant.",
+    "acceptance": "cada indicador llega hasta los registros que lo forman; sin benchmarks, la cobertura se muestra explícitamente."
+  },
+  {
+    "id": "F6-07",
+    "title": "Panel de dirección",
+    "phase": "Fase 6 · Consolidación, presupuesto y viabilidad",
+    "size": "L",
+    "deps": [
+      "F6-06"
+    ],
+    "description": "Una pantalla: score, TCO, forecast, run/change, top desviaciones, coste de retraso acumulado, alertas.",
+    "acceptance": "carga en menos de 2 s con el dataset semilla de 18 meses; todos los números clicables."
+  },
+  {
+    "id": "F6-08",
+    "title": "Chargeback por unidad de negocio",
+    "phase": "Fase 6 · Consolidación, presupuesto y viabilidad",
+    "size": "M",
+    "deps": [
+      "F6-02"
+    ],
+    "description": "Coste por BU y por servicio con la regla aplicada visible y exportable.",
+    "acceptance": "la suma de lo repartido a las BU es exactamente el coste de origen."
+  },
+  {
+    "id": "F7-01",
+    "title": "Almacenamiento de documentos",
+    "phase": "Fase 7 · Automatización de la ingesta",
+    "size": "M",
+    "deps": [
+      "F0-02"
+    ],
+    "description": "S3/MinIO, subida con URL firmada, antivirus opcional, límite de tamaño y tipo, descarga de un solo uso.",
+    "acceptance": "un fichero no es accesible sin firma; la firma caduca."
+  },
+  {
+    "id": "F7-02",
+    "title": "Interfaz `DocumentExtractor` + implementación",
+    "phase": "Fase 7 · Automatización de la ingesta",
+    "size": "L",
+    "deps": [
+      "F7-01",
+      "F0-08"
+    ],
+    "description": "Adaptador con dos implementaciones (Azure Document Intelligence y LLM con visión), salida normalizada con **confianza por campo** y coste de la llamada registrado.",
+    "acceptance": "con un fichero de prueba (facturas ficticias generadas en el propio repo) la extracción devuelve el esquema completo; cambiar de implementación no toca el dominio."
+  },
+  {
+    "id": "F7-03",
+    "title": "Bandeja de validación humana",
+    "phase": "Fase 7 · Automatización de la ingesta",
+    "size": "L",
+    "deps": [
+      "F7-02"
+    ],
+    "description": "PDF a la izquierda, campos editables a la derecha, confianza resaltada, aprobar/corregir/rechazar. **Nada llega a `POSTED` sin validación humana** cuando el origen es OCR.",
+    "acceptance": "una factura extraída no puede saltarse la revisión; las correcciones quedan auditadas y alimentan métricas de precisión del extractor."
+  },
+  {
+    "id": "F7-04",
+    "title": "Interfaz de conectores + conector ERP de referencia",
+    "phase": "Fase 7 · Automatización de la ingesta",
+    "size": "L",
+    "deps": [
+      "F2-02",
+      "F0-08"
+    ],
+    "description": "`Connector` con `authenticate/listInvoices/pullSince`, sincronización incremental con cursor, mapeo de plan contable, reintentos. Una implementación completa (Holded u Odoo).",
+    "acceptance": "sincronización incremental idempotente; una interrupción a mitad se reanuda sin duplicar."
+  },
+  {
+    "id": "F7-05",
+    "title": "Conector de coste cloud",
+    "phase": "Fase 7 · Automatización de la ingesta",
+    "size": "L",
+    "deps": [
+      "F7-04"
+    ],
+    "description": "Azure Cost Management y/o AWS Cost Explorer: coste diario por servicio y etiquetas → recurrentes.",
+    "acceptance": "el coste importado de un mes cuadra con el informe del proveedor con desviación < 0,5 %."
+  },
+  {
+    "id": "F7-06",
+    "title": "Conector de licencias M365/Google",
+    "phase": "Fase 7 · Automatización de la ingesta",
+    "size": "M",
+    "deps": [
+      "F7-04"
+    ],
+    "description": "Licencias contratadas vs activas → alimenta el cálculo de desperdicio.",
+    "acceptance": "el desperdicio calculado coincide con contratadas − activas × coste unitario."
+  },
+  {
+    "id": "F8-01",
+    "title": "Motor de alertas",
+    "phase": "Fase 8 · Cierre de producto",
+    "size": "M",
+    "deps": [
+      "F6-03",
+      "F3-02"
+    ],
+    "description": "Evaluación programada de los ocho tipos de alerta, deduplicación, reconocimiento, notificación por email.",
+    "acceptance": "una alerta ya reconocida no se vuelve a emitir mientras persista la misma causa."
+  },
+  {
+    "id": "F8-02",
+    "title": "Exportación e informes programados",
+    "phase": "Fase 8 · Cierre de producto",
+    "size": "M",
+    "deps": [
+      "F6-07"
+    ],
+    "description": "Excel y PDF de los cuadros de mando; envío programado por email.",
+    "acceptance": "el Excel exportado abre sin avisos y sus totales cuadran con la pantalla."
+  },
+  {
+    "id": "F8-03",
+    "title": "API pública v1 + OpenAPI",
+    "phase": "Fase 8 · Cierre de producto",
+    "size": "L",
+    "deps": [
+      "F6-01"
+    ],
+    "description": "Endpoints del doc 03, API keys por tenant, `Idempotency-Key`, límite de tasa, errores RFC 7807, documentación generada.",
+    "acceptance": "dos POST con la misma clave de idempotencia crean un solo recurso; el spec OpenAPI valida."
+  },
+  {
+    "id": "F8-04",
+    "title": "Datos semilla y modo demo",
+    "phase": "Fase 8 · Cierre de producto",
+    "size": "M",
+    "deps": [
+      "F6-07"
+    ],
+    "description": "Tenant de demostración: 35 empleados, 18 meses, ~2.500 facturas, 400 activos, 12 proyectos (dos con retraso severo), todo ficticio y reproducible con semilla fija.",
+    "acceptance": "`pnpm db:seed` produce siempre el mismo dataset y el Viability Score sale en la banda esperada por el test."
+  },
+  {
+    "id": "F8-05",
+    "title": "Endurecimiento y RGPD",
+    "phase": "Fase 8 · Cierre de producto",
+    "size": "L",
+    "deps": [
+      "F8-03"
+    ],
+    "description": "Cabeceras de seguridad, CSP, límite de tasa global, exportación y borrado de datos personales, política de retención, revisión de dependencias.",
+    "acceptance": "`pnpm audit` sin vulnerabilidades altas; la exportación de un empleado devuelve todos sus datos en JSON y el borrado los anonimiza dejando los agregados históricos coherentes."
+  },
+  {
+    "id": "F8-06",
+    "title": "Rendimiento y despliegue",
+    "phase": "Fase 8 · Cierre de producto",
+    "size": "M",
+    "deps": [
+      "F8-04"
+    ],
+    "description": "Índices revisados, plan de consultas de los dashboards, Dockerfile de producción, migraciones en despliegue, healthchecks.",
+    "acceptance": "el panel de dirección responde en < 2 s (p95) con el dataset de demo; el contenedor arranca y pasa el healthcheck."
+  }
+]
