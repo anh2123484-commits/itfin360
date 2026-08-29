@@ -19,10 +19,12 @@
     "clean": "rm -rf dist .turbo *.tsbuildinfo",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@itfin360/config": "workspace:*",
+    "@vitest/coverage-v8": "^3.2.0",
     "eslint": "^10.9.0",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
