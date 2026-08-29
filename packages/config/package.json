@@ -1,0 +1,39 @@
+{
+  "name": "@itfin360/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint/base": "./eslint/base.mjs",
+    "./eslint/next": "./eslint/next.mjs",
+    "./prettier": "./prettier/index.mjs",
+    "./tailwind": "./tailwind/preset.mjs",
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/library.json": "./tsconfig/library.json",
+    "./tsconfig/nextjs.json": "./tsconfig/nextjs.json"
+  },
+  "files": [
+    "eslint",
+    "prettier",
+    "tailwind",
+    "tsconfig"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "echo \"@itfin360/config: sin fuentes TypeScript\"",
+    "test": "echo \"@itfin360/config: sin tests\""
+  },
+  "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "@next/eslint-plugin-next": "^15.5.0",
+    "eslint-config-prettier": "^10.1.0",
+    "eslint-plugin-react-hooks": "^7.1.0",
+    "globals": "^17.11.0",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript-eslint": "^8.68.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.9.0",
+    "tailwindcss": "^3.4.0"
+  }
+}
