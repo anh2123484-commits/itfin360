@@ -33,7 +33,7 @@ La especificación funcional está en `docs/`. **Si el código y `docs/02-modelo
 
 ```bash
 pnpm install
-pnpm db:up            # Postgres + Redis vía docker compose
+pnpm db:up            # Postgres + Redis + MinIO vía docker compose
 pnpm db:migrate       # prisma migrate dev
 pnpm db:seed          # datos ficticios: 2 tenants, 18 meses de historia
 pnpm dev              # apps/web en :3000
