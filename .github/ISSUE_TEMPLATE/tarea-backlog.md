@@ -1,7 +1,7 @@
 ---
 name: Tarea de backlog
 about: Una unidad de trabajo del tamaño de una PR, lista para asignar a Devin
-title: "[F?-??] "
+title: '[F?-??] '
 labels: backlog
 ---
 
