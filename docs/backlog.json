@@ -86,6 +86,28 @@
     "acceptance": "un job de prueba encolado desde web se ejecuta en el worker; un job que falla 3 veces acaba en la cola de fallidos y queda visible."
   },
   {
+    "id": "F0-09",
+    "title": "Gates de seguridad en CI",
+    "phase": "Fase 0 · Fundaciones",
+    "size": "M",
+    "deps": [
+      "F0-03"
+    ],
+    "description": "CodeQL sobre TypeScript, Dependabot de dependencias y de acciones, secret scanning con push protection, `pnpm audit --audit-level=high` y comprobación de licencias de dependencias nuevas. Todo como pasos bloqueantes del workflow de F0-03.",
+    "acceptance": "una PR que introduce una dependencia con vulnerabilidad alta conocida, una con licencia no permitida, o un secreto de prueba en el diff, deja el CI en rojo. Añade un test por cada uno de los tres casos."
+  },
+  {
+    "id": "F0-10",
+    "title": "Privacidad por defecto: base técnica",
+    "phase": "Fase 0 · Fundaciones",
+    "size": "M",
+    "deps": [
+      "F0-07"
+    ],
+    "description": "Registro central de campos personales (qué dato, base legal, retención, ruta de borrado). Helper de cifrado de campo reutilizable, no acoplado a `CompensationRecord`. Redacción de PII en el logger por lista de permitidos. Job de purga por retención.",
+    "acceptance": "un modelo con un campo marcado como personal sin retención declarada falla el test del registro; el logger emite el identificador y nunca el valor; la purga borra un registro caducado y deja constancia en `AuditLog`."
+  },
+  {
     "id": "F1-01",
     "title": "Primitivas monetarias",
     "phase": "Fase 1 · Motor de cálculo",
@@ -557,8 +579,8 @@
       "F7-01",
       "F0-08"
     ],
-    "description": "Adaptador con dos implementaciones (Azure Document Intelligence y LLM con visión), salida normalizada con **confianza por campo** y coste de la llamada registrado.",
-    "acceptance": "con un fichero de prueba (facturas ficticias generadas en el propio repo) la extracción devuelve el esquema completo; cambiar de implementación no toca el dominio."
+    "description": "Adaptador con salida normalizada, **confianza por campo** y coste de la llamada registrado. Implementación local por defecto; cualquier implementación remota queda detrás del consentimiento del tenant y de un proveedor con no entrenamiento contractual.",
+    "acceptance": "con facturas ficticias generadas en el repo la extracción devuelve el esquema completo; cambiar de implementación no toca el dominio; un tenant sin consentimiento nunca alcanza la implementación remota y el intento queda en `AuditLog`; ningún documento sale del tenant en la ruta por defecto."
   },
   {
     "id": "F7-03",
