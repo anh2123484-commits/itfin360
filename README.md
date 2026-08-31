@@ -31,6 +31,7 @@ Next.js 15 · TypeScript estricto · PostgreSQL 16 con RLS · Prisma · tRPC + R
 pnpm install
 cp .env.example .env
 pnpm db:up          # Postgres + Redis + MinIO
+pnpm db:roles       # rol de aplicación (sin BYPASSRLS) y rol de migraciones
 pnpm db:migrate
 pnpm db:seed        # tenant de demostración, datos ficticios
 pnpm dev
@@ -76,13 +77,64 @@ pnpm db:migrate:deploy  # prisma migrate deploy: aplica las pendientes (desplieg
 pnpm db:generate        # sólo regenera el cliente
 ```
 
-Las migraciones usan `MIGRATION_DATABASE_URL` (rol con permisos de DDL) y la aplicación
-`DATABASE_URL` (rol sin `BYPASSRLS`); en desarrollo ambas apuntan al mismo Postgres.
+### Roles de base de datos
+
+Son dos y nunca el mismo, porque uno de ellos puede saltarse el aislamiento:
+
+| Rol | Variable | Atributos | Para qué |
+| --- | --- | --- | --- |
+| aplicación | `DATABASE_URL` | `NOBYPASSRLS`, sin DDL, sólo `SELECT/INSERT/UPDATE/DELETE` | todas las consultas de la aplicación, siempre sujetas a RLS |
+| migraciones | `MIGRATION_DATABASE_URL` | `BYPASSRLS`, `USAGE, CREATE` en el esquema | `prisma migrate`, que tiene que poder tocar filas de todos los tenants |
+
+Los crea `pnpm db:roles`, que es idempotente, a partir de `APP_DB_ROLE`, `APP_DB_PASSWORD`,
+`MIGRATION_DB_ROLE` y `MIGRATION_DB_PASSWORD`, conectándose con `ADMIN_DATABASE_URL`. Ésa es la
+única conexión de superusuario del proyecto y no la lee ningún otro código: crear roles es lo único
+que hace. En desarrollo las cinco variables vienen en `.env.example` con valores locales y el
+superusuario es el `POSTGRES_USER` del `docker-compose.yml`.
+
+```bash
+pnpm db:up      # Postgres arriba
+pnpm db:roles   # itfin360_app (sin BYPASSRLS) e itfin360_migrator (con BYPASSRLS)
+pnpm db:migrate # se aplica con el rol de migraciones
+```
+
+El SQL que aplica se genera en `packages/db/src/roles.ts` y está cubierto por tests. Las tablas que
+cree el rol de migraciones quedan accesibles al de aplicación por `ALTER DEFAULT PRIVILEGES`, así
+que no hay que volver a pasar por aquí tras cada migración.
+
+### Aislamiento por tenant
 
 Toda tabla con datos de tenant activa `ROW LEVEL SECURITY` (con `FORCE`) y su política
-`tenant_isolation` contra `current_setting('app.current_tenant')` en la misma migración que la crea.
-Mientras nadie fije esa variable de sesión —lo hará `withTenant` en F0-05— las consultas no ven
-ninguna fila.
+`tenant_isolation` en la misma migración que la crea, comparando cada fila contra la variable de
+sesión `app.current_tenant`:
+
+```sql
+"tenant_id" = NULLIF(current_setting('app.current_tenant', true), '')::uuid
+```
+
+El `NULLIF` no es decorativo: sin él, una variable fijada a cadena vacía revienta el `::uuid` con un
+error de sintaxis en lugar de devolver cero filas. Genera el bloque de una tabla nueva con
+`pnpm db:rls:policy <tabla> [columna_de_tenant]` y pégalo en la migración.
+
+Las consultas de la aplicación pasan por `withTenant`, que abre una transacción y fija la variable
+con alcance local a ella, de modo que una conexión devuelta al pool no arrastra el tenant de la
+petición anterior:
+
+```ts
+import { createTenantAwarePrismaClient } from '@itfin360/db';
+
+const db = createTenantAwarePrismaClient();
+const miembros = await db.withTenant(tenantId, (tx) => tx.membership.findMany());
+```
+
+Fuera de un contexto de tenant —o con la variable vacía— las consultas devuelven cero filas.
+`packages/db/src/tenant-isolation.integration.test.ts` lo comprueba contra un Postgres real con el
+rol de aplicación: recorre todos los modelos y verifica que ninguna consulta, agregado, `count` ni
+escritura del tenant A alcanza una fila de B.
+
+El alta de un tenant todavía necesita el rol de migraciones: el `WITH CHECK` de `tenant` exige que
+`app.current_tenant` ya valga el id de la fila que se está creando. Resolverlo es F0-06; el análisis
+está en la issue #68.
 
 ## Integración continua
 

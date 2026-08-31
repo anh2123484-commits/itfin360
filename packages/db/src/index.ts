@@ -1,12 +1,28 @@
 /**
  * Acceso a datos de ITFin360: esquema Prisma, migraciones y cliente tipado.
  *
- * El helper `withTenant` y el rol de aplicación sin `BYPASSRLS` llegan en
- * F0-05; aquí queda el esquema base de tenancy y el cliente generado.
+ * El código de aplicación consulta siempre a través de `withTenant(tenantId,
+ * cb)`: el cliente crudo no sale de este paquete (regla dura 4 de `AGENTS.md`).
  */
 
 export { createPrismaClient, PrismaClient, type PrismaClientOptions } from './client.js';
-export { databaseUrl, migrationDatabaseUrl } from './env.js';
+export { adminDatabaseUrl, databaseUrl, migrationDatabaseUrl } from './env.js';
+export {
+  currentTenantExpression,
+  enableRowLevelSecuritySql,
+  TENANT_SETTING,
+  tenantIsolationMigrationSql,
+  tenantIsolationPolicySql,
+} from './rls-policy.js';
+export { databaseRolesSql, databaseRolesSpecFromEnv, type DatabaseRolesSpec } from './roles.js';
+export {
+  assertTenantId,
+  createTenantAwarePrismaClient,
+  type TenantAwarePrismaClient,
+  type TenantDb,
+  withTenant,
+  withTenantExtension,
+} from './tenant-context.js';
 export { Plan, Role } from './generated/prisma/enums.js';
 export type {
   AuditLogModel as AuditLog,
