@@ -2,12 +2,11 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['*.test.mjs'],
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts'],
-      // Gate de CI exigido por AGENTS.md §4: cobertura >= 95 %.
+      include: ['subject.mjs'],
+      reporter: ['text'],
       thresholds: { lines: 95, statements: 95, functions: 95, branches: 95 },
     },
   },
