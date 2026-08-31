@@ -15,6 +15,14 @@
     "test": {
       "dependsOn": ["^build"]
     },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "rls:check": {
+      "dependsOn": ["^build"],
+      "inputs": ["prisma/migrations/**", "src/rls-check*.ts"]
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,

@@ -64,6 +64,27 @@ ejemplo si no existe. `.env` está en `.gitignore`: nunca se comitea.
 Los puertos son configurables por variable de entorno (`POSTGRES_PORT`, `REDIS_PORT`,
 `MINIO_API_PORT`, `MINIO_CONSOLE_PORT`) si alguno está ocupado en tu máquina.
 
+## Integración continua
+
+`.github/workflows/ci.yml` se ejecuta en cada PR contra `main` y en cada push a `main`, con
+Postgres 16, Redis 7 y MinIO levantados como servicios. Ejecuta, en este orden y todos
+bloqueantes:
+
+```bash
+pnpm lint            # gate obligatorio: next.config.ts ignora ESLint en el build
+pnpm format:check
+pnpm typecheck
+pnpm test
+pnpm test:coverage   # cobertura de packages/finance-core >= 95 %
+pnpm rls:check       # toda tabla creada por una migración tiene RLS y política
+pnpm build
+```
+
+`pnpm rls:check` recorre `packages/db/prisma/migrations`; una tabla sin datos de tenant se exime
+con un comentario `-- rls-exempt: <tabla> — <motivo>` en la propia migración.
+
+Marca el job `lint · typecheck · test · build` como *required check* en la protección de `main`.
+
 ## Sembrar el backlog en GitHub
 
 ```bash

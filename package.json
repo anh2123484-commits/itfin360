@@ -12,6 +12,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "rls:check": "turbo run rls:check",
     "db:up": "scripts/dev-services.sh up",
     "db:down": "scripts/dev-services.sh down",
     "db:reset": "scripts/dev-services.sh reset",
