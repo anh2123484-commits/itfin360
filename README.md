@@ -38,7 +38,7 @@ pnpm dev
 
 ## Entorno de desarrollo local
 
-Requisitos: Node ≥ 20.11 (`.nvmrc`), pnpm 9 y Docker con el plugin `compose`.
+Requisitos: Node ≥ 20.19 (`.nvmrc`, mínimo que exige Prisma 7), pnpm 9 y Docker con el plugin `compose`.
 
 `docker-compose.yml` levanta los tres servicios de desarrollo. Todos tienen *healthcheck*, así que
 `pnpm db:up` no termina hasta que los tres están sanos, y después crea el bucket de MinIO.
