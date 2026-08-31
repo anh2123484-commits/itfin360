@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # Turborepo
 .turbo
+
+# Cliente Prisma generado (`pnpm db:generate`)
+packages/db/src/generated/
