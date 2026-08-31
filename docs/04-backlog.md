@@ -40,6 +40,14 @@ Login por email (magic link) + contraseña, alta de tenant, invitaciones, cambio
 `apps/worker` con colas `imports`, `ocr`, `connectors`, `recalc`, `alerts`. Reintentos con backoff, cola de fallidos, panel de estado interno.
 *Aceptación:* un job de prueba encolado desde web se ejecuta en el worker; un job que falla 3 veces acaba en la cola de fallidos y queda visible.
 
+**F0-09 · Gates de seguridad en CI** · M · Dep: F0-03
+CodeQL sobre TypeScript, Dependabot de dependencias y de acciones, secret scanning con push protection, `pnpm audit --audit-level=high` y comprobación de licencias de dependencias nuevas. Todo como pasos bloqueantes del workflow de F0-03.
+*Aceptación:* una PR que introduce una dependencia con vulnerabilidad alta conocida, una con licencia no permitida, o un secreto de prueba en el diff, deja el CI en rojo. Añade un test por cada uno de los tres casos.
+
+**F0-10 · Privacidad por defecto: base técnica** · M · Dep: F0-07
+Registro central de campos personales (qué dato, base legal, retención, ruta de borrado). Helper de cifrado de campo reutilizable, no acoplado a `CompensationRecord`. Redacción de PII en el logger por lista de permitidos, no por lista de bloqueados. Job de purga por retención.
+*Aceptación:* un modelo con un campo marcado como personal sin retención declarada falla el test del registro; el logger, ante un objeto con un campo personal, emite el identificador y nunca el valor; la purga borra un registro caducado y deja constancia en `AuditLog`.
+
 ---
 
 ## Fase 1 · Motor de cálculo
@@ -229,8 +237,8 @@ S3/MinIO, subida con URL firmada, antivirus opcional, límite de tamaño y tipo,
 *Aceptación:* un fichero no es accesible sin firma; la firma caduca.
 
 **F7-02 · Interfaz `DocumentExtractor` + implementación** · L · Dep: F7-01, F0-08
-Adaptador con dos implementaciones (Azure Document Intelligence y LLM con visión), salida normalizada con **confianza por campo** y coste de la llamada registrado.
-*Aceptación:* con un fichero de prueba (facturas ficticias generadas en el propio repo) la extracción devuelve el esquema completo; cambiar de implementación no toca el dominio.
+Adaptador con salida normalizada, **confianza por campo** y coste de la llamada registrado. Implementación local por defecto; cualquier implementación remota (Azure Document Intelligence, LLM con visión) queda detrás del consentimiento del tenant y de un proveedor con no entrenamiento contractual.
+*Aceptación:* con facturas ficticias generadas en el repo la extracción devuelve el esquema completo; cambiar de implementación no toca el dominio; un tenant sin consentimiento nunca alcanza la implementación remota y el intento queda en `AuditLog`; ningún documento sale del tenant en la ruta por defecto (test que lo demuestra interceptando la salida de red).
 
 **F7-03 · Bandeja de validación humana** · L · Dep: F7-02
 PDF a la izquierda, campos editables a la derecha, confianza resaltada, aprobar/corregir/rechazar. **Nada llega a `POSTED` sin validación humana** cuando el origen es OCR.
