@@ -64,6 +64,26 @@ ejemplo si no existe. `.env` está en `.gitignore`: nunca se comitea.
 Los puertos son configurables por variable de entorno (`POSTGRES_PORT`, `REDIS_PORT`,
 `MINIO_API_PORT`, `MINIO_CONSOLE_PORT`) si alguno está ocupado en tu máquina.
 
+## Base de datos y migraciones
+
+El esquema vive en `packages/db/prisma/schema.prisma` y el cliente Prisma tipado se exporta desde
+`@itfin360/db`. El cliente se genera en `packages/db/src/generated` (ignorado por git) y `pnpm build`
+lo regenera solo.
+
+```bash
+pnpm db:migrate         # prisma migrate dev: crea y aplica migraciones en desarrollo
+pnpm db:migrate:deploy  # prisma migrate deploy: aplica las pendientes (despliegue/CI)
+pnpm db:generate        # sólo regenera el cliente
+```
+
+Las migraciones usan `MIGRATION_DATABASE_URL` (rol con permisos de DDL) y la aplicación
+`DATABASE_URL` (rol sin `BYPASSRLS`); en desarrollo ambas apuntan al mismo Postgres.
+
+Toda tabla con datos de tenant activa `ROW LEVEL SECURITY` (con `FORCE`) y su política
+`tenant_isolation` contra `current_setting('app.current_tenant')` en la misma migración que la crea.
+Mientras nadie fije esa variable de sesión —lo hará `withTenant` en F0-05— las consultas no ven
+ninguna fila.
+
 ## Integración continua
 
 `.github/workflows/ci.yml` se ejecuta en cada PR contra `main` y en cada push a `main`, con

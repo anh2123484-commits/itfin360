@@ -1,0 +1,124 @@
+// Esquema base de tenancy (F0-04). El resto del modelo de `docs/03-arquitectura-y-datos.md`
+// llega en las fases siguientes.
+//
+// Convenciones: identificadores `uuid`, tablas y columnas en snake_case,
+// `tenantId` en toda entidad con datos de tenant y política RLS en la migración.
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+enum Plan {
+  TRIAL
+  STARTER
+  PRO
+  ENTERPRISE
+
+  @@map("plan")
+}
+
+enum Role {
+  OWNER
+  FINANCE
+  IT_MANAGER
+  PROJECT_MANAGER
+  CONTRIBUTOR
+  VIEWER
+
+  @@map("role")
+}
+
+/// Organización cliente. Raíz del aislamiento: el resto de tablas cuelga de aquí.
+model Tenant {
+  id                   String   @id @default(uuid()) @db.Uuid
+  name                 String
+  baseCurrency         String   @map("base_currency") @db.Char(3)
+  fiscalYearStartMonth Int      @default(1) @map("fiscal_year_start_month")
+  settings             Json     @default("{}")
+  plan                 Plan     @default(TRIAL)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  paramVersions TenantParamVersion[]
+  memberships   Membership[]
+  auditLogs     AuditLog[]
+
+  @@map("tenant")
+}
+
+/// Parámetros de cálculo del doc 02 versionados por fecha de efecto.
+model TenantParamVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  effectiveFrom DateTime @map("effective_from")
+  params        Json
+  createdById   String?  @map("created_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, effectiveFrom])
+  @@index([tenantId])
+  @@map("tenant_param_version")
+}
+
+/// Identidad de la persona. Es global: un mismo usuario puede pertenecer a varios tenants.
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberships         Membership[]
+  auditLogs           AuditLog[]
+  tenantParamVersions TenantParamVersion[]
+
+  @@map("user")
+}
+
+/// Pertenencia de un usuario a un tenant, con su rol y permisos sensibles.
+model Membership {
+  id                  String   @id @default(uuid()) @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  role                Role
+  canViewCompensation Boolean  @default(false) @map("can_view_compensation")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@map("membership")
+}
+
+/// Registro de auditoría. Append-only para el rol de aplicación en F0-07.
+model AuditLog {
+  id       String   @id @default(uuid()) @db.Uuid
+  tenantId String   @map("tenant_id") @db.Uuid
+  actorId  String?  @map("actor_id") @db.Uuid
+  action   String
+  entity   String
+  entityId String   @map("entity_id")
+  before   Json?
+  after    Json?
+  ip       String?
+  at       DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, at])
+  @@index([tenantId, entity, entityId])
+  @@map("audit_log")
+}
