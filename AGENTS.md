@@ -19,6 +19,11 @@ La especificación funcional está en `docs/`. **Si el código y `docs/02-modelo
 8. **Ningún dato real de cliente** en fixtures, seeds, tests o capturas. Datos ficticios y evidentemente ficticios.
 9. **Sin secretos en el repo.** Todo por variable de entorno, declarada en `.env.example`.
 10. **Migraciones aditivas.** Nada de `DROP COLUMN` sin una PR previa de despliegue en dos fases.
+11. **Minimización.** No se recoge ni se persiste ningún dato personal que no exija una fórmula de `docs/02-modelo-financiero.md` o una obligación legal. Todo campo personal nuevo se justifica en la PR.
+12. **Cero PII en logs, trazas y mensajes de error.** El logger redacta por defecto. Se registran identificadores, nunca valores.
+13. **Ningún dato de cliente sale del tenant.** Prohibido enviar contenido de facturas, nóminas o documentos a un servicio externo —modelos de IA incluidos— sin consentimiento explícito del tenant registrado en `AuditLog` y sin garantía contractual de no entrenamiento. El extractor por defecto es local.
+14. **Cifrado en reposo para toda categoría personal**, no sólo retribución: mismo patrón que `CompensationRecord`.
+15. **Retención declarada.** Todo modelo con datos personales declara su periodo de retención y su ruta de borrado (RGPD art. 17). Un modelo sin ambas cosas no pasa revisión.
 
 ## 2. Flujo de trabajo
 
