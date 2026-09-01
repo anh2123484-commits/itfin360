@@ -44,8 +44,7 @@ describe('gate de lint', () => {
   });
 
   it('acepta la puerta de entrada con contexto de tenant', async () => {
-    const code =
-      "import { withTenant } from '@itfin360/db';\nexport const run = withTenant;";
+    const code = "import { withTenant } from '@itfin360/db';\nexport const run = withTenant;";
 
     expect(await ruleIds(code)).toEqual([]);
   });
