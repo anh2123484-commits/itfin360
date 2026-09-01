@@ -28,4 +28,25 @@ describe('gate de lint', () => {
       [],
     );
   });
+
+  it('prohíbe el cliente Prisma crudo fuera de packages/db', async () => {
+    const code =
+      "import { createPrismaClient } from '@itfin360/db';\nexport const db = createPrismaClient();";
+
+    expect(await ruleIds(code)).toContain('no-restricted-imports');
+  });
+
+  it('prohíbe importar el cliente Prisma generado', async () => {
+    const code =
+      "import { PrismaClient } from '@itfin360/db/generated/prisma/client.js';\nexport const make = (c: PrismaClient): PrismaClient => c;";
+
+    expect(await ruleIds(code)).toContain('no-restricted-imports');
+  });
+
+  it('acepta la puerta de entrada con contexto de tenant', async () => {
+    const code =
+      "import { withTenant } from '@itfin360/db';\nexport const run = withTenant;";
+
+    expect(await ruleIds(code)).toEqual([]);
+  });
 });
