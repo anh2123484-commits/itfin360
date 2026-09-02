@@ -33,6 +33,7 @@ cp .env.example .env
 pnpm db:up          # Postgres + Redis + MinIO
 pnpm db:roles       # rol de aplicación (sin BYPASSRLS) y rol de migraciones
 pnpm db:migrate
+pnpm db:roles       # otra vez: concede EXECUTE sobre las funciones que acaba de crear la migración
 pnpm db:seed        # tenant de demostración, datos ficticios
 pnpm dev
 ```
@@ -96,11 +97,14 @@ superusuario es el `POSTGRES_USER` del `docker-compose.yml`.
 pnpm db:up      # Postgres arriba
 pnpm db:roles   # itfin360_app (sin BYPASSRLS) e itfin360_migrator (con BYPASSRLS)
 pnpm db:migrate # se aplica con el rol de migraciones
+pnpm db:roles   # concede EXECUTE sobre las funciones SECURITY DEFINER acotadas (ver abajo)
 ```
 
 El SQL que aplica se genera en `packages/db/src/roles.ts` y está cubierto por tests. Las tablas que
-cree el rol de migraciones quedan accesibles al de aplicación por `ALTER DEFAULT PRIVILEGES`, así
-que no hay que volver a pasar por aquí tras cada migración.
+cree el rol de migraciones quedan accesibles al de aplicación por `ALTER DEFAULT PRIVILEGES`. Con las
+funciones ocurre lo contrario: ninguna es ejecutable por defecto (`REVOKE EXECUTE ... FROM PUBLIC`)
+y el rol de aplicación sólo recibe `EXECUTE` sobre la lista cerrada `APP_EXECUTABLE_FUNCTIONS`, por
+lo que hay que volver a ejecutar `pnpm db:roles` tras una migración que añada una de esas funciones.
 
 ### Aislamiento por tenant
 
@@ -132,9 +136,46 @@ Fuera de un contexto de tenant —o con la variable vacía— las consultas devu
 rol de aplicación: recorre todos los modelos y verifica que ninguna consulta, agregado, `count` ni
 escritura del tenant A alcanza una fila de B.
 
-El alta de un tenant todavía necesita el rol de migraciones: el `WITH CHECK` de `tenant` exige que
-`app.current_tenant` ya valga el id de la fila que se está creando. Resolverlo es F0-06; el análisis
-está en la issue #68.
+### Alta de tenant: `provision_tenant`
+
+El `WITH CHECK` de `tenant` exige que `app.current_tenant` ya valga el id de la fila que se está
+creando, así que el rol de aplicación no puede insertar un tenant con un `INSERT` normal (issue #68).
+En vez de relajar la política, la migración `20260902061500_auth_invitations_provisioning` define
+`provision_tenant(nombre, moneda, propietario)`, una función `SECURITY DEFINER` propiedad del rol de
+migraciones, con `search_path` fijo y `EXECUTE` sólo para el rol de aplicación, que genera el id,
+fija el contexto a ese id dentro de su propia transacción y crea atómicamente el tenant, la
+membership `OWNER` (con `canViewCompensation = true`) y la entrada `tenant.created` en `audit_log`.
+Es la única operación privilegiada, no acepta el id como parámetro y restaura el contexto anterior.
+Su hermana `user_memberships(user_id)` devuelve las pertenencias de un usuario para poder elegir
+tenant tras el login, cuando todavía no hay contexto. Desde la aplicación:
+
+```ts
+const tenantId = await db.identity.provisionTenant({ name, baseCurrency: 'EUR', ownerUserId });
+const memberships = await db.identity.userMemberships(userId);
+```
+
+## Autenticación, organizaciones y permisos (F0-06)
+
+`apps/web` usa Auth.js v5 con sesión JWT y dos formas de entrar: enlace mágico por email
+(`EMAIL_SERVER`, `EMAIL_FROM`; caduca en 15 min) y contraseña (registro en `/registro` o
+`POST /api/auth/register`; se guarda un hash `scrypt`, nunca la contraseña). `AUTH_SECRET` firma
+la sesión. Las tablas de identidad (`user`, `verification_token`) son globales y sin RLS: existen
+antes de que haya tenant; `invitation` y `membership` llevan RLS como el resto.
+
+- Tenant activo: cookie `itfin360_tenant`, validada siempre contra las memberships del usuario
+  (`PUT /api/tenants/active` para cambiar). Con una sola pertenencia no hace falta cookie.
+- Invitaciones: `POST /api/invitations` (sólo `members:invite`, es decir `OWNER`) devuelve un enlace
+  `/invitaciones/<tenantId>/<token>` de un solo uso que caduca en 7 días. En base de datos se guarda
+  el SHA-256 del token. La aceptación exige sesión con el mismo email invitado.
+- Permisos: `can(principal, permiso)` en `apps/web/src/lib/permissions.ts` codifica la matriz de
+  `docs/01 §7`. `compensation:read_individual` **no** lo concede ningún rol: sólo
+  `membership.canViewCompensation`. `requirePermission(...)` en rutas y server actions devuelve
+  401/403 desde el servidor; `GET /api/compensation` es el punto de referencia y deja huella en
+  `audit_log`. `apps/web/src/app/api/permisos-servidor.test.ts` lo comprueba contra los handlers.
+- Privacidad (reglas 11 y 12): sólo `email`, `name`, `emailVerified` y `passwordHash` en `user`.
+  Las respuestas y errores devuelven códigos (`already_registered`, `invitation_expired`…), nunca
+  el email ni el nombre; el logger de Auth.js sólo emite el nombre del error o el código, sin metadatos. El
+  registro de campos personales y la retención se declaran en F0-10.
 
 ## Integración continua
 
