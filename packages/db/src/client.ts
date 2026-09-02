@@ -13,8 +13,8 @@ export interface PrismaClientOptions {
  * Crea un cliente Prisma sobre el adaptador de Postgres.
  *
  * **No usar directamente en código de aplicación**: la regla dura 4 de
- * `AGENTS.md` exige que toda consulta pase por `withTenant(tenantId, cb)`, que
- * llega en F0-05 y se construirá sobre esta función.
+ * `AGENTS.md` exige que toda consulta pase por `withTenant(tenantId, cb)`; usa
+ * `createTenantAwarePrismaClient()`, que envuelve esta función.
  */
 export function createPrismaClient(options: PrismaClientOptions = {}): PrismaClient {
   const adapter = new PrismaPg({ connectionString: options.connectionString ?? databaseUrl() });

@@ -24,10 +24,13 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:reset": "prisma migrate reset",
-    "rls:check": "tsx src/rls-check.cli.ts"
+    "rls:check": "tsx src/rls-check.cli.ts",
+    "rls:policy": "tsx src/rls-policy.cli.ts",
+    "roles": "tsx src/roles.cli.ts"
   },
   "devDependencies": {
     "@itfin360/config": "workspace:*",
+    "@testcontainers/postgresql": "^11.14.0",
     "@types/node": "^22.13.0",
     "@types/pg": "^8.15.5",
     "dotenv": "^17.2.3",

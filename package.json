@@ -15,6 +15,8 @@
     "test:coverage": "turbo run test:coverage",
     "rls:check": "turbo run rls:check",
     "db:generate": "pnpm --filter @itfin360/db run generate",
+    "db:roles": "pnpm --filter @itfin360/db run roles",
+    "db:rls:policy": "pnpm --filter @itfin360/db run rls:policy",
     "db:migrate": "pnpm --filter @itfin360/db run migrate:dev",
     "db:migrate:deploy": "pnpm --filter @itfin360/db run migrate:deploy",
     "db:up": "scripts/dev-services.sh up",

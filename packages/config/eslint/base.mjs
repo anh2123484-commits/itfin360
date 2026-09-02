@@ -29,6 +29,28 @@ export const baseConfig = tseslint.config(
           message: 'Prohibido `as any`: tipa el valor correctamente.',
         },
       ],
+      // Regla dura 4 de `AGENTS.md`: el cliente Prisma crudo no sale de `packages/db`.
+      // Dentro del paquete los imports son relativos, así que esta regla no le afecta.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@itfin360/db',
+              importNames: ['createPrismaClient', 'PrismaClient'],
+              message:
+                'El cliente Prisma crudo se queda en packages/db: usa createTenantAwarePrismaClient y consulta dentro de withTenant(tenantId, cb).',
+            },
+          ],
+          patterns: [
+            {
+              group: ['@itfin360/db/generated', '@itfin360/db/generated/**'],
+              message:
+                'El cliente Prisma generado es interno a packages/db: entra por withTenant(tenantId, cb).',
+            },
+          ],
+        },
+      ],
       eqeqeq: ['error', 'always'],
     },
   },
