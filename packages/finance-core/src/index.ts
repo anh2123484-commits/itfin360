@@ -57,5 +57,27 @@ export {
   type TechnicalDebtResult,
 } from './depreciation.js';
 
+export {
+  DEFAULT_COLLECTIVE_AGREEMENT_HOURS,
+  DEFAULT_EMPLOYER_SS_RATE,
+  DEFAULT_PRODUCTIVITY_FACTOR,
+  DEFAULT_SS_BREAKDOWN,
+  MIN_EMPLOYEES_FOR_AGGREGATE,
+  employerCost,
+  internalHourlyRate,
+  productiveHours,
+  roleHourlyRate,
+  socialSecurityRate,
+  workplaceCost,
+  type EmployerCost,
+  type EmployerCostInput,
+  type ProductiveHours,
+  type ProductiveHoursInput,
+  type RoleHourlyRate,
+  type RoleMember,
+  type SocialSecurityBreakdown,
+  type WorkplaceCostInput,
+} from './personnel.js';
+
 /** Identificador del paquete, útil para trazas y diagnósticos. */
 export const FINANCE_CORE_PACKAGE = '@itfin360/finance-core' as const;
