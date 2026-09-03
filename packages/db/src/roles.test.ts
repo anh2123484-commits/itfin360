@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { databaseRolesSql, databaseRolesSpecFromEnv, type DatabaseRolesSpec } from './roles.js';
+import {
+  APP_EXECUTABLE_FUNCTIONS,
+  databaseRolesSql,
+  databaseRolesSpecFromEnv,
+  type DatabaseRolesSpec,
+} from './roles.js';
 
 const SPEC: DatabaseRolesSpec = {
   appRole: 'itfin360_app',
@@ -29,6 +34,20 @@ describe('roles de base de datos', () => {
     expect(databaseRolesSql(SPEC)).toContain(
       'ALTER DEFAULT PRIVILEGES FOR ROLE "itfin360_migrator" IN SCHEMA "public"',
     );
+  });
+
+  it('sólo concede EXECUTE sobre las funciones SECURITY DEFINER acotadas, y nunca por defecto', () => {
+    const sql = databaseRolesSql(SPEC);
+    expect(sql).not.toContain('ON ALL FUNCTIONS');
+    expect(sql).toContain('REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;');
+    for (const signature of APP_EXECUTABLE_FUNCTIONS) {
+      expect(sql).toContain(`to_regprocedure('"public".${signature}')`);
+      expect(sql).toContain(`GRANT EXECUTE ON FUNCTION "public".${signature} TO "itfin360_app"`);
+    }
+    expect(APP_EXECUTABLE_FUNCTIONS).toEqual([
+      'provision_tenant(text, char(3), uuid)',
+      'user_memberships(uuid)',
+    ]);
   });
 
   it('rechaza usar el mismo rol para las dos cosas', () => {

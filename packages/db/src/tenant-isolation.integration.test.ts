@@ -20,6 +20,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from './client.js';
 import { Prisma } from './generated/prisma/client.js';
+import { provisionTenant, userMemberships } from './identity.js';
 import { databaseRolesSql } from './roles.js';
 import { TENANT_SETTING } from './rls-policy.js';
 import {
@@ -46,12 +47,14 @@ const A = {
   params: 'aaaaaaa2-0000-4000-8000-000000000001',
   membership: 'aaaaaaa3-0000-4000-8000-000000000001',
   auditLog: 'aaaaaaa4-0000-4000-8000-000000000001',
+  invitation: 'aaaaaaa5-0000-4000-8000-000000000001',
 } as const;
 const B = {
   user: 'bbbbbbb1-0000-4000-8000-000000000001',
   params: 'bbbbbbb2-0000-4000-8000-000000000001',
   membership: 'bbbbbbb3-0000-4000-8000-000000000001',
   auditLog: 'bbbbbbb4-0000-4000-8000-000000000001',
+  invitation: 'bbbbbbb5-0000-4000-8000-000000000001',
 } as const;
 
 /** B tiene el doble de filas y fechas posteriores: cualquier fuga cambia counts y máximos. */
@@ -138,6 +141,37 @@ async function seed(): Promise<void> {
       },
     ],
   });
+  await migrator.invitation.createMany({
+    data: [
+      {
+        id: A.invitation,
+        tenantId: TENANT_A,
+        email: 'invitada-a@tenant-a.example',
+        role: 'VIEWER',
+        tokenHash: 'hash-a-1',
+        expiresAt: FECHA_A,
+        invitedById: A.user,
+      },
+      {
+        id: B.invitation,
+        tenantId: TENANT_B,
+        email: 'invitado-b@tenant-b.example',
+        role: 'FINANCE',
+        canViewCompensation: true,
+        tokenHash: 'hash-b-1',
+        expiresAt: FECHA_B,
+        invitedById: B.user,
+      },
+      {
+        id: 'bbbbbbb5-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        email: 'invitado-b2@tenant-b.example',
+        role: 'VIEWER',
+        tokenHash: 'hash-b-2',
+        expiresAt: FECHA_B,
+      },
+    ],
+  });
 }
 
 beforeAll(async () => {
@@ -146,7 +180,6 @@ beforeAll(async () => {
   // 1. El superusuario crea los dos roles, igual que `pnpm db:roles` en desarrollo.
   const superuser = createPrismaClient({ connectionString: container.getConnectionUri() });
   await superuser.$executeRawUnsafe(databaseRolesSql(ROLES));
-  await superuser.$disconnect();
 
   // 2. Las migraciones se aplican con el rol de migraciones (BYPASSRLS + DDL).
   const migrationUrl = connectionString(ROLES.migrationRole, ROLES.migrationPassword);
@@ -154,6 +187,11 @@ beforeAll(async () => {
     cwd: process.cwd(),
     env: { ...process.env, DATABASE_URL: migrationUrl, MIGRATION_DATABASE_URL: migrationUrl },
   });
+
+  // 3. `pnpm db:roles` de nuevo (es idempotente): concede EXECUTE sólo sobre las funciones
+  //    SECURITY DEFINER acotadas que acaba de crear la migración.
+  await superuser.$executeRawUnsafe(databaseRolesSql(ROLES));
+  await superuser.$disconnect();
 
   migrator = createPrismaClient({ connectionString: migrationUrl });
   await seed();
@@ -235,6 +273,17 @@ const SONDAS: readonly SondaDeModelo[] = [
       (await db.auditLog.updateMany({ where: { id }, data: { action: 'intruso' } })).count,
     borrarPorId: async (db, id) => (await db.auditLog.deleteMany({ where: { id } })).count,
   },
+  {
+    modelo: 'invitation',
+    filasDeA: 1,
+    idDeB: B.invitation,
+    contar: (db) => db.invitation.count(),
+    tenantIdsVisibles: async (db) => (await db.invitation.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.invitation.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.invitation.updateMany({ where: { id }, data: { role: 'OWNER' } })).count,
+    borrarPorId: async (db, id) => (await db.invitation.deleteMany({ where: { id } })).count,
+  },
 ];
 
 /** Ejecuta `fn` en el cliente de aplicación con `app.current_tenant` fijado a `valor`. */
@@ -261,10 +310,10 @@ describe('aislamiento entre tenants con RLS', () => {
     >(Prisma.sql`
       SELECT relname, relrowsecurity, relforcerowsecurity
       FROM pg_class
-      WHERE relname IN ('tenant', 'tenant_param_version', 'membership', 'audit_log')
+      WHERE relname IN ('tenant', 'tenant_param_version', 'membership', 'audit_log', 'invitation')
       ORDER BY relname
     `);
-    expect(tablas).toHaveLength(4);
+    expect(tablas).toHaveLength(5);
     for (const tabla of tablas) {
       expect(tabla, tabla.relname).toMatchObject({
         relrowsecurity: true,
@@ -280,7 +329,7 @@ describe('aislamiento entre tenants con RLS', () => {
       WHERE schemaname = 'public'
       ORDER BY tablename
     `);
-    expect(politicas).toHaveLength(4);
+    expect(politicas).toHaveLength(5);
     for (const politica of politicas) {
       expect(politica.policyname, politica.tablename).toBe('tenant_isolation');
       expect(politica.qual, politica.tablename).toContain('NULLIF');
@@ -432,5 +481,119 @@ describe('aislamiento entre tenants con RLS', () => {
       const miembros = await db.membership.findMany({ include: { user: true } });
       expect(miembros.map((m) => m.user.email)).toEqual(['ana@tenant-a.example']);
     });
+  });
+});
+
+describe('alta de tenant con provision_tenant (issue #68)', () => {
+  it('el rol de aplicación no puede insertar en tenant directamente: el WITH CHECK sigue intacto', async () => {
+    await expect(
+      appSinContexto.tenant.create({
+        data: { name: 'Sin contexto', baseCurrency: 'EUR' },
+      }),
+    ).rejects.toThrow(/row-level security/);
+  });
+
+  it('crea tenant, membership OWNER y audit_log atómicamente y devuelve el id', async () => {
+    const tenantId = await provisionTenant(appSinContexto, {
+      name: '  Tenant Nuevo Ficticio  ',
+      baseCurrency: 'EUR',
+      ownerUserId: A.user,
+    });
+
+    await app.withTenant(tenantId, async (db) => {
+      const tenant = await db.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+      expect(tenant).toMatchObject({
+        name: 'Tenant Nuevo Ficticio',
+        baseCurrency: 'EUR',
+        plan: 'TRIAL',
+      });
+
+      const miembros = await db.membership.findMany();
+      expect(miembros).toHaveLength(1);
+      expect(miembros[0]).toMatchObject({
+        tenantId,
+        userId: A.user,
+        role: 'OWNER',
+        canViewCompensation: true,
+      });
+
+      const auditoria = await db.auditLog.findMany();
+      expect(auditoria).toHaveLength(1);
+      expect(auditoria[0]).toMatchObject({
+        tenantId,
+        actorId: A.user,
+        action: 'tenant.created',
+        entity: 'tenant',
+        entityId: tenantId,
+      });
+    });
+
+    // Fuera de la función, el contexto de la conexión vuelve a estar vacío.
+    expect(await appSinContexto.tenant.count()).toBe(0);
+    // Y desde otro tenant el nuevo sigue siendo invisible.
+    await app.withTenant(TENANT_A, async (db) => {
+      expect(await db.tenant.findUnique({ where: { id: tenantId } })).toBeNull();
+    });
+  });
+
+  it('rechaza propietario inexistente, nombre vacío y moneda inválida sin crear nada', async () => {
+    const antes = await migrator.tenant.count();
+    await expect(
+      provisionTenant(appSinContexto, {
+        name: 'X',
+        baseCurrency: 'EUR',
+        ownerUserId: '99999999-9999-4999-8999-999999999999',
+      }),
+    ).rejects.toThrow(/propietario no existe/);
+    await expect(
+      provisionTenant(appSinContexto, { name: '   ', baseCurrency: 'EUR', ownerUserId: A.user }),
+    ).rejects.toThrow(/nombre de tenant/);
+    await expect(
+      provisionTenant(appSinContexto, { name: 'X', baseCurrency: 'eur', ownerUserId: A.user }),
+    ).rejects.toThrow(/moneda base/);
+    expect(await migrator.tenant.count()).toBe(antes);
+  });
+
+  it('la función está acotada: sólo el rol de migraciones es propietario y PUBLIC no la ejecuta', async () => {
+    const funciones = await migrator.$queryRaw<
+      { proname: string; owner: string; prosecdef: boolean; acl: string[] | null }[]
+    >(Prisma.sql`
+      SELECT p.proname, r.rolname AS owner, p.prosecdef, p.proacl::text[] AS acl
+      FROM pg_proc p JOIN pg_roles r ON r.oid = p.proowner
+      WHERE p.proname IN ('provision_tenant', 'user_memberships')
+      ORDER BY p.proname
+    `);
+    expect(funciones.map((f) => f.proname)).toEqual(['provision_tenant', 'user_memberships']);
+    for (const f of funciones) {
+      expect(f.owner, f.proname).toBe(ROLES.migrationRole);
+      expect(f.prosecdef, f.proname).toBe(true);
+      const acl = f.acl ?? [];
+      expect(
+        acl.some((entry) => entry.startsWith('=X/')),
+        `${f.proname} PUBLIC`,
+      ).toBe(false);
+      expect(
+        acl.some((entry) => entry.startsWith(`${ROLES.appRole}=X/`)),
+        f.proname,
+      ).toBe(true);
+    }
+  });
+
+  it('user_memberships devuelve sólo las pertenencias del usuario pedido, sin contexto de tenant', async () => {
+    const deA = await userMemberships(appSinContexto, A.user);
+    expect(deA.map((m) => [m.tenantId, m.role, m.canViewCompensation])).toEqual(
+      expect.arrayContaining([
+        [TENANT_A, 'OWNER', false],
+        [TENANT_B, 'VIEWER', false],
+      ]),
+    );
+    expect(deA.find((m) => m.tenantId === TENANT_A)?.tenantName).toBe('Tenant A Ficticio');
+
+    const deB = await userMemberships(appSinContexto, B.user);
+    expect(deB.map((m) => m.tenantId)).toEqual([TENANT_B]);
+
+    expect(await userMemberships(appSinContexto, '99999999-9999-4999-8999-999999999999')).toEqual(
+      [],
+    );
   });
 });
