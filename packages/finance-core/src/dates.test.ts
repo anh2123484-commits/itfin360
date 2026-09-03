@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  addMonths,
   compareDates,
   daysInMonth,
   isLeapYear,
   monthKey,
   monthlyDayCounts,
+  monthsBetween,
   parseIsoDate,
   startOfNextMonth,
   toEpochDay,
@@ -92,6 +94,57 @@ describe('monthlyDayCounts', () => {
   it('rechaza un periodo invertido', () => {
     expect(() => monthlyDayCounts(parseIsoDate('2026-05-02'), parseIsoDate('2026-05-01'))).toThrow(
       /termina antes de empezar/,
+    );
+  });
+});
+
+describe('addMonths', () => {
+  it('suma meses cruzando el fin de año', () => {
+    expect(addMonths({ year: 2026, month: 11, day: 5 }, 3)).toEqual({
+      year: 2027,
+      month: 2,
+      day: 5,
+    });
+  });
+
+  it('recorta el día al último del mes destino', () => {
+    expect(addMonths({ year: 2026, month: 1, day: 31 }, 1)).toEqual({
+      year: 2026,
+      month: 2,
+      day: 28,
+    });
+    expect(addMonths({ year: 2028, month: 1, day: 31 }, 1)).toEqual({
+      year: 2028,
+      month: 2,
+      day: 29,
+    });
+  });
+
+  it('admite meses negativos', () => {
+    expect(addMonths({ year: 2026, month: 2, day: 10 }, -3)).toEqual({
+      year: 2025,
+      month: 11,
+      day: 10,
+    });
+  });
+});
+
+describe('monthsBetween', () => {
+  it('cuenta meses completos', () => {
+    expect(
+      monthsBetween({ year: 2026, month: 3, day: 15 }, { year: 2026, month: 4, day: 14 }),
+    ).toBe(0);
+    expect(
+      monthsBetween({ year: 2026, month: 3, day: 15 }, { year: 2026, month: 4, day: 15 }),
+    ).toBe(1);
+    expect(
+      monthsBetween({ year: 2020, month: 3, day: 15 }, { year: 2026, month: 3, day: 15 }),
+    ).toBe(72);
+  });
+
+  it('es negativo hacia atrás', () => {
+    expect(monthsBetween({ year: 2026, month: 6, day: 1 }, { year: 2026, month: 1, day: 1 })).toBe(
+      -5,
     );
   });
 });
