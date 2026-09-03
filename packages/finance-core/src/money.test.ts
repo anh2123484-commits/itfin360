@@ -150,7 +150,9 @@ describe('allocateByLargestRemainder', () => {
       const total = cents(Math.floor((random() - 0.3) * 5_000_000));
       const partesCount = 1 + Math.floor(random() * 12);
       const weights = Array.from({ length: partesCount }, () => Math.floor(random() * 1000));
-      if (weights.every((weight) => weight === 0)) weights[0] = 1;
+      // Sin `every(w => w === 0)`: TS lo infiere como predicado de tipo y estrecha
+      // `weights` a `0[]`, con lo que la asignación siguiente deja de compilar.
+      if (weights.reduce((a, b) => a + b, 0) === 0) weights[0] = 1;
 
       const partes = allocateByLargestRemainder(total, weights);
       const suma = partes.reduce((a, b) => a + b, 0);
