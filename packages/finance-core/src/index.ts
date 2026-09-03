@@ -95,5 +95,73 @@ export {
   type UtilizationInput,
 } from './utilization.js';
 
+export {
+  DEFAULT_ON_BUDGET_THRESHOLD,
+  actualCost,
+  deliveryReliability,
+  evm,
+  projectProgress,
+  valueOfProgress,
+  type ActualCostInput,
+  type DeliveredProject,
+  type DeliveryReliability,
+  type Evm,
+  type EvmInput,
+  type MilestoneStatus,
+  type ProgressMethod,
+  type ProjectMilestone,
+} from './evm.js';
+
+export {
+  DEFAULT_DAYS_IN_MONTH,
+  DEFAULT_DAYS_IN_YEAR,
+  DEFAULT_WORKDAY_HOURS,
+  DELAY_CAUSES,
+  costOfDelay,
+  costOfDelayForUniformDays,
+  delayCostForDay,
+  delayOverrunRatio,
+  retainedTeamCost,
+  reworkCost,
+  type CostOfDelay,
+  type DelayCause,
+  type DelayConfig,
+  type DelayCostBreakdown,
+  type DelayDay,
+  type RetainedTeamMember,
+} from './delay.js';
+
+export {
+  ALLOCATION_DRIVERS,
+  AllocationCycleError,
+  allocate,
+  serviceTco,
+  unitEconomics,
+  type AllocationDriver,
+  type AllocationResult,
+  type AllocationRule,
+  type AllocationStep,
+  type AllocationTarget,
+  type ServiceTco,
+  type ServiceTcoInput,
+  type UnitEconomics,
+  type UnitEconomicsInput,
+} from './allocation.js';
+
+export {
+  applyScenario,
+  budgetExecution,
+  budgetForPeriods,
+  forecast,
+  type BudgetExecution,
+  type BudgetLine,
+  type Forecast,
+  type ForecastInput,
+  type RecurringCommitment,
+  type Scenario,
+  type ScenarioForecast,
+  type ScenarioOverride,
+} from './forecast.js';
+
 /** Identificador del paquete, útil para trazas y diagnósticos. */
 export const FINANCE_CORE_PACKAGE = '@itfin360/finance-core' as const;
