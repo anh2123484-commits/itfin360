@@ -38,7 +38,7 @@ export function auditFailures(report, level = 'high') {
     .map((severidad) => ({
       module: `${recuento[severidad]} paquete(s)`,
       severity: severidad,
-      title: 'ver \`pnpm audit\`',
+      title: 'ver `pnpm audit`',
     }));
 }
 
