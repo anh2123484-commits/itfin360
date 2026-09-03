@@ -40,5 +40,22 @@ export {
   type ServicePeriod,
 } from './accrual.js';
 
+export {
+  DEFAULT_HARDWARE_INFLATION_RATE,
+  DEFAULT_USEFUL_LIFE_MONTHS,
+  depreciationSchedule,
+  monthlyDepreciationCents,
+  netBookValueAt,
+  replacementCost,
+  technicalDebt,
+  type AssetCategory,
+  type AssetForDebt,
+  type AssetStatus,
+  type DepreciationEntry,
+  type DepreciationInput,
+  type TechnicalDebtConfig,
+  type TechnicalDebtResult,
+} from './depreciation.js';
+
 /** Identificador del paquete, útil para trazas y diagnósticos. */
 export const FINANCE_CORE_PACKAGE = '@itfin360/finance-core' as const;
