@@ -79,5 +79,21 @@ export {
   type WorkplaceCostInput,
 } from './personnel.js';
 
+export {
+  DEFAULT_RECOVERY_BANDS,
+  aggregateRecovery,
+  recoveryRatio,
+  unbookedCostTotal,
+  utilization,
+  type AggregateRecovery,
+  type RecoveryBand,
+  type RecoveryBands,
+  type RecoveryMember,
+  type RecoveryRatio,
+  type RecoveryRatioInput,
+  type Utilization,
+  type UtilizationInput,
+} from './utilization.js';
+
 /** Identificador del paquete, útil para trazas y diagnósticos. */
 export const FINANCE_CORE_PACKAGE = '@itfin360/finance-core' as const;
