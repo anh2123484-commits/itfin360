@@ -138,6 +138,22 @@ describe('gate de vulnerabilidades', () => {
     );
   });
 
+  it('falla cerrado si pnpm audit no pudo consultar el servicio', () => {
+    const sinRed = {
+      error: {
+        code: 'ERR_PNPM_AUDIT_BAD_RESPONSE',
+        message: 'The audit endpoint responded with 403',
+      },
+    };
+
+    expect(() => auditFailures(sinRed, 'high')).toThrow(/no utilizable/);
+  });
+
+  it('falla cerrado si el informe no tiene forma reconocible', () => {
+    expect(() => auditFailures({}, 'high')).toThrow(/falla cerrado/);
+    expect(() => auditFailures(null, 'high')).toThrow(/no utilizable/);
+  });
+
   it('rechaza una severidad desconocida', () => {
     expect(() => auditFailures(reporte, 'catastrofica')).toThrow(/Severidad desconocida/);
   });
