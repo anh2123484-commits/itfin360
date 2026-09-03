@@ -107,3 +107,20 @@ export function monthlyDayCounts(
   }
   return tramos;
 }
+
+/** Suma meses a una fecha civil, recortando el día al último del mes destino. */
+export function addMonths(date: CivilDate, months: number): CivilDate {
+  const total = date.year * 12 + (date.month - 1) + months;
+  const year = Math.floor(total / 12);
+  const month = total - year * 12 + 1;
+  return { year, month, day: Math.min(date.day, daysInMonth(year, month)) };
+}
+
+/**
+ * Meses **completos** transcurridos entre dos fechas. Del 15/03 al 14/04 hay 0
+ * meses; del 15/03 al 15/04, uno. Es la edad que decide si un activo ha vencido.
+ */
+export function monthsBetween(from: CivilDate, to: CivilDate): number {
+  const brutos = (to.year - from.year) * 12 + (to.month - from.month);
+  return to.day < from.day ? brutos - 1 : brutos;
+}
