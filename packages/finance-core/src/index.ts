@@ -163,5 +163,26 @@ export {
   type ScenarioOverride,
 } from './forecast.js';
 
+export {
+  DEFAULT_INDICATOR_BANDS,
+  DEFAULT_INDICATOR_WEIGHTS,
+  DEFAULT_READING_BANDS,
+  VIABILITY_INDICATORS,
+  normalizeToBand,
+  viabilityScore,
+  type IndicatorBreakdown,
+  type InsufficientReason,
+  type LinearBand,
+  type Measure,
+  type RangeBand,
+  type ReadingBands,
+  type ScoreBand,
+  type SectorBenchmarks,
+  type ViabilityIndicatorId,
+  type ViabilityInput,
+  type ViabilityReading,
+  type ViabilityScore,
+} from './viability.js';
+
 /** Identificador del paquete, útil para trazas y diagnósticos. */
 export const FINANCE_CORE_PACKAGE = '@itfin360/finance-core' as const;
