@@ -178,6 +178,26 @@ export interface ViabilityInput {
 /** Motivo por el que un indicador no entra en el cómputo. */
 export type InsufficientReason = 'NO_VALUE' | 'NO_BENCHMARK' | 'NO_TRACEABILITY';
 
+/**
+ * Aviso accionable: un indicador que **traía valor** pero se ha quedado fuera.
+ *
+ * Sólo se avisa de lo que se puede arreglar cargando algo. Un indicador sin
+ * ningún dato (`NO_VALUE`) no genera aviso: no hay nada que corregir, falta
+ * medirlo. En cambio, un valor sin ids de origen o sin referencia sectorial es
+ * un hueco de configuración, y decir cuánto peso cuesta es lo que hace que
+ * alguien lo rellene.
+ */
+export interface IndicatorWarning {
+  readonly id: ViabilityIndicatorId;
+  readonly reason: 'NO_BENCHMARK' | 'NO_TRACEABILITY';
+  /** Valor que se ha medido y no se está usando. */
+  readonly rawValue: number | null;
+  /** Peso que se está redistribuyendo por culpa de este hueco. */
+  readonly lostWeight: number;
+  /** Qué hay que cargar para recuperarlo. */
+  readonly action: string;
+}
+
 /** Desglose de un indicador: todo lo que hace falta para explicar su contribución. */
 export interface IndicatorBreakdown {
   readonly id: ViabilityIndicatorId;
@@ -207,6 +227,11 @@ export interface ViabilityScore {
   readonly coverage: number;
   /** Indicadores excluidos, para poder decir qué falta por cargar. */
   readonly excluded: readonly ViabilityIndicatorId[];
+  /**
+   * Huecos que se pueden cerrar cargando un dato, con el peso que cuesta cada uno.
+   * Vacío no significa score completo: mira `coverage`.
+   */
+  readonly warnings: readonly IndicatorWarning[];
   readonly indicators: readonly IndicatorBreakdown[];
 }
 
@@ -397,11 +422,30 @@ export function viabilityScore(input: ViabilityInput): ViabilityScore {
   const score =
     pesoDisponible > 0 ? indicators.reduce((suma, i) => suma + (i.contribution ?? 0), 0) : null;
 
+  const ACCION: Readonly<Record<'NO_BENCHMARK' | 'NO_TRACEABILITY', string>> = {
+    NO_BENCHMARK:
+      'Falta la referencia sectorial del tenant. Cárgala y el indicador vuelve a contar.',
+    NO_TRACEABILITY:
+      'El indicador trae valor pero sin ids de registros de origen. ' +
+      'Sin ellos no hay drill-down, así que no se computa: añade los ids y vuelve a contar.',
+  };
+
+  const warnings: IndicatorWarning[] = indicators
+    .filter((i) => i.reason === 'NO_BENCHMARK' || i.reason === 'NO_TRACEABILITY')
+    .map((i) => ({
+      id: i.id,
+      reason: i.reason as 'NO_BENCHMARK' | 'NO_TRACEABILITY',
+      rawValue: i.rawValue,
+      lostWeight: i.weight,
+      action: ACCION[i.reason as 'NO_BENCHMARK' | 'NO_TRACEABILITY'],
+    }));
+
   return {
     score,
     reading: score === null ? null : readingFor(score, readingBands),
     coverage: pesoTotal > 0 ? pesoDisponible / pesoTotal : 0,
     excluded: indicators.filter((i) => i.status === 'INSUFFICIENT_DATA').map((i) => i.id),
+    warnings,
     indicators,
   };
 }
