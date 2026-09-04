@@ -3,9 +3,12 @@
  *
  * El código de aplicación consulta siempre a través de `withTenant(tenantId,
  * cb)`: el cliente crudo no sale de este paquete (regla dura 4 de `AGENTS.md`).
+ * Por eso el índice expone `createTenantAwarePrismaClient` pero no
+ * `createPrismaClient` ni `PrismaClient`, y la configuración ESLint compartida
+ * prohíbe importarlos —y el cliente generado— fuera de `packages/db`.
  */
 
-export { createPrismaClient, PrismaClient, type PrismaClientOptions } from './client.js';
+export type { PrismaClientOptions } from './client.js';
 export { adminDatabaseUrl, databaseUrl, migrationDatabaseUrl } from './env.js';
 export {
   currentTenantExpression,
