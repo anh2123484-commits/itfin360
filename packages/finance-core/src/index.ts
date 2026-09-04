@@ -171,6 +171,7 @@ export {
   normalizeToBand,
   viabilityScore,
   type IndicatorBreakdown,
+  type IndicatorWarning,
   type InsufficientReason,
   type LinearBand,
   type Measure,
