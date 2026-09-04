@@ -264,6 +264,46 @@ describe('viabilityScore · datos insuficientes', () => {
   });
 });
 
+describe('viabilityScore · avisos accionables', () => {
+  it('avisa de los indicadores que traían valor y se han quedado fuera', () => {
+    const { benchmarks: _sinUsar, ...sinReferencias } = TODO_BIEN;
+    const r = viabilityScore({
+      ...sinReferencias,
+      governedSpendShare: { value: 0.95, sourceIds: [] },
+    });
+
+    expect(r.warnings.map((w) => w.id)).toEqual([
+      'IT_SPEND_RATIO',
+      'COST_PER_USER',
+      'GOVERNED_SPEND',
+    ]);
+    const gobernado = r.warnings.find((w) => w.id === 'GOVERNED_SPEND');
+    expect(gobernado?.reason).toBe('NO_TRACEABILITY');
+    expect(gobernado?.rawValue).toBe(0.95);
+    expect(gobernado?.lostWeight).toBe(10);
+    expect(gobernado?.action).toContain('ids');
+  });
+
+  it('el peso perdido en los avisos explica exactamente la cobertura que falta', () => {
+    const { benchmarks: _sinUsar, ...sinReferencias } = TODO_BIEN;
+    const r = viabilityScore(sinReferencias);
+    const perdido = r.warnings.reduce((t, w) => t + w.lostWeight, 0);
+    expect(perdido).toBe(25);
+    expect(r.coverage).toBeCloseTo(1 - perdido / 100, 10);
+  });
+
+  it('un indicador sin ningún dato no genera aviso: no hay nada que corregir', () => {
+    const { weightedCpi: _sinUsar, ...sinCpi } = TODO_BIEN;
+    const r = viabilityScore(sinCpi);
+    expect(r.excluded).toEqual(['WEIGHTED_CPI']);
+    expect(r.warnings).toEqual([]);
+  });
+
+  it('con todo cargado no hay avisos', () => {
+    expect(viabilityScore(TODO_BIEN).warnings).toEqual([]);
+  });
+});
+
 describe('viabilityScore · configuración del tenant', () => {
   it('admite pesos propios', () => {
     const r = viabilityScore({
