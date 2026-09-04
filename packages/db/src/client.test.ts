@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { createPrismaClient, DB_PACKAGE, Plan, Role } from './index.js';
+import { createPrismaClient } from './client.js';
+import { DB_PACKAGE, Plan, Role } from './index.js';
 
 describe('cliente exportado', () => {
   it('expone los enums del esquema', () => {
