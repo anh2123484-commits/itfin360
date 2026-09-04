@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # `feat/**` para que las PR apiladas (una tarea sobre otra) pasen CI antes de
+    # llegar a `main`, no sólo cuando GitHub las reapunta al fusionar su base.
+    branches: [main, 'feat/**']
 
 concurrency:
   group: ci-${{ github.ref }}

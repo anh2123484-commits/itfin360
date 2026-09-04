@@ -77,12 +77,39 @@ export function databaseRolesSql(spec: DatabaseRolesSpec): string {
     `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ${schema} TO ${app};`,
     `GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ${schema} TO ${app};`,
     '',
+    '-- Funciones SECURITY DEFINER acotadas: sólo las listadas, y sólo si ya existen (se ejecuta',
+    '-- este SQL antes y después de migrar). Ninguna otra función queda ejecutable por el rol app.',
+    ...APP_EXECUTABLE_FUNCTIONS.map((signature) => grantExecuteIfExists(schema, signature, app)),
+    '',
     '-- Las tablas que cree el rol de migraciones quedan accesibles sin volver a pasar por aquí.',
     `ALTER DEFAULT PRIVILEGES FOR ROLE ${migration} IN SCHEMA ${schema}`,
     `  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${app};`,
     `ALTER DEFAULT PRIVILEGES FOR ROLE ${migration} IN SCHEMA ${schema}`,
     `  GRANT USAGE, SELECT ON SEQUENCES TO ${app};`,
+    `ALTER DEFAULT PRIVILEGES FOR ROLE ${migration} IN SCHEMA ${schema}`,
+    '  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;',
     '',
+  ].join('\n');
+}
+
+/**
+ * Únicas funciones que el rol de aplicación puede ejecutar. Son `SECURITY DEFINER`
+ * (propiedad del rol de migraciones) y cada una está acotada a una operación concreta.
+ */
+export const APP_EXECUTABLE_FUNCTIONS: readonly string[] = [
+  'provision_tenant(text, char(3), uuid)',
+  'user_memberships(uuid)',
+];
+
+function grantExecuteIfExists(schema: string, signature: string, app: string): string {
+  const qualified = `${schema}.${signature}`;
+  return [
+    'DO $$',
+    'BEGIN',
+    `  IF to_regprocedure(${quoteLiteral(qualified, 'La firma de función')}) IS NOT NULL THEN`,
+    `    EXECUTE 'GRANT EXECUTE ON FUNCTION ${qualified.replaceAll("'", "''")} TO ${app.replaceAll("'", "''")}';`,
+    '  END IF;',
+    'END $$;',
   ].join('\n');
 }
 

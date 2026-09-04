@@ -9,6 +9,7 @@
 
 import { createPrismaClient, type PrismaClient, type PrismaClientOptions } from './client.js';
 import type { Prisma } from './generated/prisma/client.js';
+import { identityOperations } from './identity.js';
 import { TENANT_SETTING } from './rls-policy.js';
 
 /** Cliente disponible dentro de `withTenant`: el de la transacción, ya con el tenant fijado. */
@@ -48,9 +49,11 @@ export async function withTenant<T>(
 }
 
 /**
- * Extensión de cliente que expone `withTenant` en el propio cliente. Es la
- * única puerta de entrada que debe usar el código de aplicación; el cliente
- * crudo se queda en este paquete.
+ * Extensión de cliente que expone `withTenant` en el propio cliente, más la
+ * superficie global de identidad (`identity`: usuario, magic link, alta de
+ * tenant y pertenencias), que por definición ocurre antes de tener tenant.
+ * Es la única puerta de entrada que debe usar el código de aplicación; el
+ * cliente crudo se queda en este paquete.
  */
 export function withTenantExtension(client: PrismaClient) {
   return client.$extends({
@@ -58,6 +61,7 @@ export function withTenantExtension(client: PrismaClient) {
     client: {
       withTenant: <T>(tenantId: string, fn: (db: TenantDb) => Promise<T>): Promise<T> =>
         withTenant(client, tenantId, fn),
+      identity: identityOperations(client),
     },
   });
 }

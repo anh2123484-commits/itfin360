@@ -17,6 +17,16 @@ export {
   tenantIsolationMigrationSql,
   tenantIsolationPolicySql,
 } from './rls-policy.js';
+export {
+  type IdentityOperations,
+  type IdentityUser,
+  identityOperations,
+  type ProvisionTenantInput,
+  provisionTenant,
+  type UserMembership,
+  userMemberships,
+  type VerificationTokenRecord,
+} from './identity.js';
 export { databaseRolesSql, databaseRolesSpecFromEnv, type DatabaseRolesSpec } from './roles.js';
 export {
   assertTenantId,
@@ -29,6 +39,7 @@ export {
 export { Plan, Role } from './generated/prisma/enums.js';
 export type {
   AuditLogModel as AuditLog,
+  InvitationModel as Invitation,
   MembershipModel as Membership,
   TenantModel as Tenant,
   TenantParamVersionModel as TenantParamVersion,
