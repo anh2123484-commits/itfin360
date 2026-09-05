@@ -113,5 +113,16 @@ jobs:
       - name: Política RLS en las migraciones
         run: pnpm rls:check
 
+      # Gates de seguridad (F0-09). Van antes del build: si entra una dependencia
+      # vulnerable, una licencia no permitida o un secreto, la PR se para aquí.
+      - name: Auditoría de dependencias
+        run: pnpm security:audit
+
+      - name: Licencias de dependencias
+        run: pnpm security:licenses
+
+      - name: Secretos en el repositorio
+        run: pnpm security:secrets
+
       - name: Build
         run: pnpm build

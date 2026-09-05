@@ -1,0 +1,41 @@
+# Dependabot (F0-09). Mantiene al día las dependencias y las acciones del
+# workflow, que es de donde vienen la mayoría de los avisos que luego bloquean
+# `pnpm security:audit`.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Madrid
+    open-pull-requests-limit: 5
+    labels:
+      - dependencias
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # Un solo PR para los parches: reduce el ruido sin ocultar los saltos mayores.
+      parches:
+        update-types:
+          - patch
+      desarrollo:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Madrid
+    labels:
+      - dependencias
+    commit-message:
+      prefix: chore
+      include: scope

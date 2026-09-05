@@ -1,0 +1,42 @@
+# Análisis estático de seguridad (F0-09).
+#
+# CodeQL cubre lo que el linter no ve: inyección, deserialización insegura,
+# recorrido de rutas y flujos de datos entre ficheros. Corre en cada PR contra
+# `main` y una vez por semana, porque las consultas se actualizan solas.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analizar:
+    name: CodeQL · javascript-typescript
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      # No se compila el proyecto: para JS/TS, CodeQL analiza las fuentes
+      # directamente y el build ya lo cubre el workflow de CI.
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript
