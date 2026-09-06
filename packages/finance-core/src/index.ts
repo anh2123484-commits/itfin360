@@ -185,5 +185,27 @@ export {
   type ViabilityScore,
 } from './viability.js';
 
+export {
+  CONCEPT_DEFINITIONS,
+  SPEND_CONCEPTS,
+  budgetCategoryFor,
+  conceptDefinition,
+  defaultUsefulLifeMonths,
+  governedSpendShare,
+  periodSpend,
+  treatLine,
+  validateLineConcept,
+  type BudgetCategory,
+  type ConceptDefinition,
+  type ConceptIssue,
+  type CostType,
+  type CostableLine,
+  type GovernableLine,
+  type LineTreatment,
+  type PeriodSpend,
+  type SpendConcept,
+  type WorkNature,
+} from './concepts.js';
+
 /** Identificador del paquete, útil para trazas y diagnósticos. */
 export const FINANCE_CORE_PACKAGE = '@itfin360/finance-core' as const;
