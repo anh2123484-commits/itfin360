@@ -99,11 +99,9 @@ export interface ConceptDefinition {
   readonly governable: boolean;
 }
 
-const DEF = (d: ConceptDefinition): ConceptDefinition => d;
-
 /** Tabla del plan de conceptos. Es configuración de arranque, ampliable por tenant. */
 export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinition>> = {
-  SAAS_SUBSCRIPTION: DEF({
+  SAAS_SUBSCRIPTION: {
     id: 'SAAS_SUBSCRIPTION',
     label: 'Suscripción SaaS',
     costType: 'OPEX_RECURRING',
@@ -112,8 +110,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: true,
     governable: true,
-  }),
-  SOFTWARE_LICENSE: DEF({
+  },
+  SOFTWARE_LICENSE: {
     id: 'SOFTWARE_LICENSE',
     label: 'Licencia de software por suscripción',
     costType: 'OPEX_RECURRING',
@@ -122,8 +120,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: true,
     governable: true,
-  }),
-  CLOUD_INFRASTRUCTURE: DEF({
+  },
+  CLOUD_INFRASTRUCTURE: {
     id: 'CLOUD_INFRASTRUCTURE',
     label: 'Infraestructura cloud',
     costType: 'OPEX_RECURRING',
@@ -132,8 +130,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: true,
     governable: true,
-  }),
-  HOSTING: DEF({
+  },
+  HOSTING: {
     id: 'HOSTING',
     label: 'Hosting y alojamiento',
     costType: 'OPEX_RECURRING',
@@ -142,8 +140,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: true,
     governable: true,
-  }),
-  TELECOM: DEF({
+  },
+  TELECOM: {
     id: 'TELECOM',
     label: 'Telecomunicaciones',
     costType: 'OPEX_RECURRING',
@@ -152,8 +150,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: true,
     governable: true,
-  }),
-  MAINTENANCE: DEF({
+  },
+  MAINTENANCE: {
     id: 'MAINTENANCE',
     label: 'Mantenimiento',
     costType: 'OPEX_RECURRING',
@@ -162,8 +160,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: true,
     governable: true,
-  }),
-  THIRD_PARTY_SUPPORT: DEF({
+  },
+  THIRD_PARTY_SUPPORT: {
     id: 'THIRD_PARTY_SUPPORT',
     label: 'Soporte de terceros',
     costType: 'OPEX_RECURRING',
@@ -172,8 +170,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: true,
     governable: true,
-  }),
-  INSURANCE: DEF({
+  },
+  INSURANCE: {
     id: 'INSURANCE',
     label: 'Seguros',
     costType: 'OPEX_RECURRING',
@@ -182,8 +180,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: true,
     governable: true,
-  }),
-  CONSULTING: DEF({
+  },
+  CONSULTING: {
     id: 'CONSULTING',
     label: 'Consultoría puntual',
     costType: 'OPEX_ONE_OFF',
@@ -192,8 +190,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: false,
     governable: true,
-  }),
-  TRAINING: DEF({
+  },
+  TRAINING: {
     id: 'TRAINING',
     label: 'Formación',
     costType: 'OPEX_ONE_OFF',
@@ -202,8 +200,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: false,
     governable: false,
-  }),
-  CONSUMABLES: DEF({
+  },
+  CONSUMABLES: {
     id: 'CONSUMABLES',
     label: 'Consumibles y material fungible',
     costType: 'OPEX_ONE_OFF',
@@ -212,8 +210,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: false,
     governable: false,
-  }),
-  HARDWARE_SERVER: DEF({
+  },
+  HARDWARE_SERVER: {
     id: 'HARDWARE_SERVER',
     label: 'Servidores',
     costType: 'CAPEX',
@@ -223,8 +221,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     assetCategory: 'SERVER',
     typicallyRecurring: false,
     governable: false,
-  }),
-  HARDWARE_STORAGE: DEF({
+  },
+  HARDWARE_STORAGE: {
     id: 'HARDWARE_STORAGE',
     label: 'Almacenamiento',
     costType: 'CAPEX',
@@ -234,8 +232,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     assetCategory: 'STORAGE',
     typicallyRecurring: false,
     governable: false,
-  }),
-  HARDWARE_NETWORK: DEF({
+  },
+  HARDWARE_NETWORK: {
     id: 'HARDWARE_NETWORK',
     label: 'Equipamiento de red',
     costType: 'CAPEX',
@@ -245,8 +243,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     assetCategory: 'NETWORK',
     typicallyRecurring: false,
     governable: false,
-  }),
-  HARDWARE_ENDUSER: DEF({
+  },
+  HARDWARE_ENDUSER: {
     id: 'HARDWARE_ENDUSER',
     label: 'Puesto de trabajo (portátiles y sobremesa)',
     costType: 'CAPEX',
@@ -256,8 +254,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     assetCategory: 'LAPTOP',
     typicallyRecurring: false,
     governable: false,
-  }),
-  HARDWARE_MOBILE: DEF({
+  },
+  HARDWARE_MOBILE: {
     id: 'HARDWARE_MOBILE',
     label: 'Dispositivos móviles',
     costType: 'CAPEX',
@@ -267,8 +265,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     assetCategory: 'MOBILE',
     typicallyRecurring: false,
     governable: false,
-  }),
-  PERPETUAL_LICENSE: DEF({
+  },
+  PERPETUAL_LICENSE: {
     id: 'PERPETUAL_LICENSE',
     label: 'Licencia perpetua',
     costType: 'CAPEX',
@@ -278,8 +276,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     assetCategory: 'SOFTWARE_LICENSE_PERPETUAL',
     typicallyRecurring: false,
     governable: true,
-  }),
-  CAPITALISED_DEV: DEF({
+  },
+  CAPITALISED_DEV: {
     id: 'CAPITALISED_DEV',
     label: 'Desarrollo capitalizado',
     costType: 'CAPEX',
@@ -289,8 +287,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     assetCategory: 'INTANGIBLE_DEV',
     typicallyRecurring: false,
     governable: false,
-  }),
-  CONTRACTOR: DEF({
+  },
+  CONTRACTOR: {
     id: 'CONTRACTOR',
     label: 'Personal externo',
     costType: 'PERSONNEL_EXTERNAL',
@@ -299,8 +297,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: true,
     governable: true,
-  }),
-  PROJECT_SERVICES: DEF({
+  },
+  PROJECT_SERVICES: {
     id: 'PROJECT_SERVICES',
     label: 'Servicios de proyecto',
     costType: 'PROJECT_COST',
@@ -309,8 +307,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: false,
     governable: true,
-  }),
-  SLA_PENALTY: DEF({
+  },
+  SLA_PENALTY: {
     id: 'SLA_PENALTY',
     label: 'Penalización de SLA',
     costType: 'PENALTY',
@@ -319,8 +317,8 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: false,
     governable: false,
-  }),
-  OTHER: DEF({
+  },
+  OTHER: {
     id: 'OTHER',
     label: 'Otros',
     costType: 'OPEX_ONE_OFF',
@@ -329,7 +327,7 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: false,
     governable: false,
-  }),
+  },
 };
 
 /** Definición de un concepto. */
@@ -376,9 +374,7 @@ export function validateLineConcept(line: {
   if (definicion.costType !== line.costType) {
     problemas.push({
       code: 'COST_TYPE_MISMATCH',
-      message:
-        `El concepto "${definicion.label}" es ${definicion.costType}, ` +
-        `pero la línea viene como ${line.costType}.`,
+      message: `El concepto "${definicion.label}" es ${definicion.costType}, pero la línea viene como ${line.costType}.`,
     });
   }
 
@@ -477,9 +473,11 @@ export function periodSpend(lines: readonly CostableLine[]): PeriodSpend {
     );
   }
 
+  const desglose: Partial<Record<BudgetCategory, Cents>> = Object.fromEntries(porCategoria);
+
   return {
     totalCents: total,
-    byBudgetCategory: Object.fromEntries(porCategoria) as Partial<Record<BudgetCategory, Cents>>,
+    byBudgetCategory: desglose,
     capitalisedCents: capitalizado,
     pendingCapitalisation: pendientes,
   };
