@@ -202,8 +202,10 @@ export {
   type CostableLine,
   type GovernableLine,
   type LineTreatment,
+  type PendingCapitalisation,
   type PeriodSpend,
   type SpendConcept,
+  type ValidatableLine,
   type WorkNature,
 } from './concepts.js';
 

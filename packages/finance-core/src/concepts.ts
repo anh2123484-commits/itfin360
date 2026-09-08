@@ -356,6 +356,13 @@ export interface ConceptIssue {
   readonly message: string;
 }
 
+/** Lo mínimo que hace falta saber de una línea para validar su concepto. */
+export interface ValidatableLine {
+  readonly concept: SpendConcept;
+  readonly costType: CostType;
+  readonly assetId?: string | undefined;
+}
+
 /**
  * Comprueba que la naturaleza contable declarada encaja con el concepto.
  *
@@ -363,11 +370,7 @@ export interface ConceptIssue {
  * y al importar un CSV de mil filas, y ahí lo que hace falta es enseñar el error
  * en la fila, no abortar la importación entera.
  */
-export function validateLineConcept(line: {
-  readonly concept: SpendConcept;
-  readonly costType: CostType;
-  readonly assetId?: string | undefined;
-}): ConceptIssue[] {
+export function validateLineConcept(line: ValidatableLine): ConceptIssue[] {
   const definicion = CONCEPT_DEFINITIONS[line.concept];
   const problemas: ConceptIssue[] = [];
 
@@ -429,6 +432,12 @@ export function treatLine(line: CostableLine): LineTreatment {
   return { kind: 'PENDING_CAPITALISATION', budgetCategory: definicion.budgetCategory };
 }
 
+/** Línea CAPEX que cuenta como gasto porque todavía no tiene activo dado de alta. */
+export interface PendingCapitalisation {
+  readonly lineId: string;
+  readonly netCents: Cents;
+}
+
 /** Gasto del periodo, repartido por categoría presupuestaria. */
 export interface PeriodSpend {
   readonly totalCents: Cents;
@@ -436,10 +445,7 @@ export interface PeriodSpend {
   /** Importe que ya no cuenta aquí porque entra por amortización. */
   readonly capitalisedCents: Cents;
   /** Líneas CAPEX sin activo dado de alta: cuentan, pero hay que regularizarlas. */
-  readonly pendingCapitalisation: readonly {
-    readonly lineId: string;
-    readonly netCents: Cents;
-  }[];
+  readonly pendingCapitalisation: readonly PendingCapitalisation[];
 }
 
 /**
