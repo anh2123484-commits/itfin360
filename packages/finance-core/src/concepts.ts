@@ -20,12 +20,7 @@ import { DEFAULT_USEFUL_LIFE_MONTHS } from './depreciation.js';
 
 /** Naturaleza contable de una línea (`CostType` en `docs/03`). */
 export type CostType =
-  | 'OPEX_RECURRING'
-  | 'OPEX_ONE_OFF'
-  | 'CAPEX'
-  | 'PERSONNEL_EXTERNAL'
-  | 'PROJECT_COST'
-  | 'PENALTY';
+  'OPEX_RECURRING' | 'OPEX_ONE_OFF' | 'CAPEX' | 'PERSONNEL_EXTERNAL' | 'PROJECT_COST' | 'PENALTY';
 
 /**
  * Categoría presupuestaria: el nivel al que se fija el presupuesto anual
