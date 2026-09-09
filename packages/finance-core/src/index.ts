@@ -209,5 +209,16 @@ export {
   type WorkNature,
 } from './concepts.js';
 
+export {
+  DEFAULT_DUPLICATE_CONFIG,
+  findDuplicates,
+  flaggedInvoiceIds,
+  normalizeInvoiceNumber,
+  type DuplicateConfig,
+  type DuplicateMatch,
+  type DuplicateReason,
+  type InvoiceForDuplicates,
+} from './duplicates.js';
+
 /** Identificador del paquete, útil para trazas y diagnósticos. */
 export const FINANCE_CORE_PACKAGE = '@itfin360/finance-core' as const;
