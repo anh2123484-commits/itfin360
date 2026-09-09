@@ -220,5 +220,22 @@ export {
   type InvoiceForDuplicates,
 } from './duplicates.js';
 
+export {
+  DEFAULT_ALERT_THRESHOLDS,
+  contractAlerts,
+  licenseWaste,
+  priceChange,
+  totalAnnualImpact,
+  type AlertSeverity,
+  type AlertThresholds,
+  type ContractAlert,
+  type ContractAlertType,
+  type ContractForAlerts,
+  type LicenseWaste,
+  type PriceChange,
+  type SeatContract,
+  type SeatUsage,
+} from './contracts.js';
+
 /** Identificador del paquete, útil para trazas y diagnósticos. */
 export const FINANCE_CORE_PACKAGE = '@itfin360/finance-core' as const;
