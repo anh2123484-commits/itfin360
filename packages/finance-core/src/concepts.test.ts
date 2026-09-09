@@ -80,6 +80,22 @@ describe('tabla de conceptos', () => {
     expect(budgetCategoryFor('CONTRACTOR')).toBe('PROFESSIONAL_SERVICES');
     expect(budgetCategoryFor('PROJECT_SERVICES')).toBe('PROJECTS');
     expect(budgetCategoryFor('SLA_PENALTY')).toBe('PENALTIES');
+    expect(budgetCategoryFor('SECURITY_SERVICES')).toBe('SECURITY_AND_COMPLIANCE');
+    expect(budgetCategoryFor('SECURITY_AUDIT')).toBe('SECURITY_AND_COMPLIANCE');
+  });
+
+  it('seguridad sale de un presupuesto propio, con las dos naturalezas contables', () => {
+    // La cifra unica de gasto en seguridad: los dos conceptos, una sola categoria.
+    const seguridad = SPEND_CONCEPTS.filter(
+      (c) => conceptDefinition(c).budgetCategory === 'SECURITY_AND_COMPLIANCE',
+    );
+    expect(seguridad.sort()).toEqual(['SECURITY_AUDIT', 'SECURITY_SERVICES']);
+    // Una certificacion mantenida recurre; una auditoria o un pentest no.
+    expect(conceptDefinition('SECURITY_SERVICES').costType).toBe('OPEX_RECURRING');
+    expect(conceptDefinition('SECURITY_AUDIT').costType).toBe('OPEX_ONE_OFF');
+    // Los dos van bajo contrato, asi que cuentan en el gasto gobernado.
+    expect(conceptDefinition('SECURITY_SERVICES').governable).toBe(true);
+    expect(conceptDefinition('SECURITY_AUDIT').governable).toBe(true);
   });
 });
 
