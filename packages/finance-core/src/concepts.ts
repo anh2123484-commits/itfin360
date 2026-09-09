@@ -36,6 +36,7 @@ export type BudgetCategory =
   | 'PROFESSIONAL_SERVICES'
   | 'PROJECTS'
   | 'PENALTIES'
+  | 'SECURITY_AND_COMPLIANCE'
   | 'OTHER';
 
 /** Reparto run/change de un concepto. */
@@ -53,6 +54,8 @@ export const SPEND_CONCEPTS = [
   'INSURANCE',
   'CONSULTING',
   'TRAINING',
+  'SECURITY_SERVICES',
+  'SECURITY_AUDIT',
   'CONSUMABLES',
   'HARDWARE_SERVER',
   'HARDWARE_STORAGE',
@@ -195,6 +198,26 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     capitalises: false,
     typicallyRecurring: false,
     governable: false,
+  },
+  SECURITY_SERVICES: {
+    id: 'SECURITY_SERVICES',
+    label: 'Seguridad gestionada y cumplimiento',
+    costType: 'OPEX_RECURRING',
+    budgetCategory: 'SECURITY_AND_COMPLIANCE',
+    workNature: 'RUN',
+    capitalises: false,
+    typicallyRecurring: true,
+    governable: true,
+  },
+  SECURITY_AUDIT: {
+    id: 'SECURITY_AUDIT',
+    label: 'Auditoría, pentest y certificación',
+    costType: 'OPEX_ONE_OFF',
+    budgetCategory: 'SECURITY_AND_COMPLIANCE',
+    workNature: 'RUN',
+    capitalises: false,
+    typicallyRecurring: false,
+    governable: true,
   },
   CONSUMABLES: {
     id: 'CONSUMABLES',
