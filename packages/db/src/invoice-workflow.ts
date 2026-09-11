@@ -62,14 +62,16 @@ export interface TransitionRule {
   readonly auditAction: string;
 }
 
-/** Quien puede registrar y corregir facturas, sin poder aprobarlas. */
-const REGISTRA: readonly InvoiceRole[] = [
-  'OWNER',
-  'FINANCE',
-  'IT_MANAGER',
-  'PROJECT_MANAGER',
-  'CONTRIBUTOR',
-];
+/**
+ * Quien puede registrar y corregir facturas, sin poder aprobarlas.
+ *
+ * Coincide exactamente con quien tiene el permiso `invoices:create` en la
+ * matriz de roles de `docs/01` §7. `PROJECT_MANAGER` no está: gestiona
+ * proyectos y sus horas, no la entrada de facturas. Hay un test en `apps/web`
+ * que comprueba que las dos listas no se separan; si lo hicieran, un rol
+ * tendría el botón y recibiría un 403 al pulsarlo, o al revés.
+ */
+const REGISTRA: readonly InvoiceRole[] = ['OWNER', 'FINANCE', 'IT_MANAGER', 'CONTRIBUTOR'];
 
 /** Quien decide sobre el dinero. `VIEWER` no aparece en ninguna transición. */
 const APRUEBA: readonly InvoiceRole[] = ['OWNER', 'FINANCE'];
