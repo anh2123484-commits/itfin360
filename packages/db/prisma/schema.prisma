@@ -33,6 +33,79 @@ enum Role {
   @@map("role")
 }
 
+enum Criticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+
+  @@map("criticality")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  POSTED
+  REJECTED
+  DUPLICATE
+
+  @@map("invoice_status")
+}
+
+enum InvoiceSource {
+  MANUAL
+  CSV_IMPORT
+  OCR
+  ERP_SYNC
+  CLOUD_CONNECTOR
+  API
+
+  @@map("invoice_source")
+}
+
+enum CostType {
+  OPEX_RECURRING
+  OPEX_ONE_OFF
+  CAPEX
+  PERSONNEL_EXTERNAL
+  PROJECT_COST
+  PENALTY
+
+  @@map("cost_type")
+}
+
+/// Plan de conceptos. Replica `SPEND_CONCEPTS` de `@itfin360/finance-core`, en el
+/// mismo orden; `packages/db/src/concept-enum.test.ts` fija la correspondencia.
+enum SpendConcept {
+  SAAS_SUBSCRIPTION
+  SOFTWARE_LICENSE
+  CLOUD_INFRASTRUCTURE
+  HOSTING
+  TELECOM
+  MAINTENANCE
+  THIRD_PARTY_SUPPORT
+  INSURANCE
+  CONSULTING
+  TRAINING
+  SECURITY_SERVICES
+  SECURITY_AUDIT
+  CONSUMABLES
+  HARDWARE_SERVER
+  HARDWARE_STORAGE
+  HARDWARE_NETWORK
+  HARDWARE_ENDUSER
+  HARDWARE_MOBILE
+  PERPETUAL_LICENSE
+  CAPITALISED_DEV
+  CONTRACTOR
+  PROJECT_SERVICES
+  SLA_PENALTY
+  OTHER
+
+  @@map("spend_concept")
+}
+
 /// Organización cliente. Raíz del aislamiento: el resto de tablas cuelga de aquí.
 model Tenant {
   id                   String   @id @default(uuid()) @db.Uuid
@@ -48,6 +121,9 @@ model Tenant {
   memberships   Membership[]
   auditLogs     AuditLog[]
   invitations   Invitation[]
+  vendors       Vendor[]
+  invoices      Invoice[]
+  invoiceLines  InvoiceLine[]
 
   @@map("tenant")
 }
@@ -161,4 +237,98 @@ model AuditLog {
   @@index([tenantId, at])
   @@index([tenantId, entity, entityId])
   @@map("audit_log")
+}
+
+// ---------------------------------------------------------------------------
+// Proveedores, facturas y líneas (F2-01)
+// ---------------------------------------------------------------------------
+
+/// Proveedor del departamento. `name` es el nombre comercial —el que reconoce
+/// quien mira la factura— y `legalName` el fiscal, que es el que coincide con
+/// el NIF y con lo que devuelve un conector de contabilidad.
+model Vendor {
+  id          String      @id @default(uuid()) @db.Uuid
+  tenantId    String      @map("tenant_id") @db.Uuid
+  name        String
+  legalName   String?     @map("legal_name")
+  taxId       String?     @map("tax_id")
+  country     String?     @db.Char(2)
+  criticality Criticality @default(MEDIUM)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, taxId])
+  @@index([tenantId])
+  @@map("vendor")
+}
+
+/// Factura recibida. La unicidad `(tenant, proveedor, número)` es la primera
+/// barrera contra el doble pago: un proveedor no repite número, así que la base
+/// de datos rechaza el duplicado exacto antes de que llegue a contabilizarse.
+/// El duplicado difuso no se bloquea —lo decide una persona— y cuando se
+/// confirma queda enlazado en `duplicateOfId` con estado `DUPLICATE`.
+model Invoice {
+  id                   String        @id @default(uuid()) @db.Uuid
+  tenantId             String        @map("tenant_id") @db.Uuid
+  vendorId             String        @map("vendor_id") @db.Uuid
+  invoiceNumber        String        @map("invoice_number")
+  issueDate            DateTime      @map("issue_date")
+  accrualDate          DateTime      @map("accrual_date")
+  dueDate              DateTime?     @map("due_date")
+  serviceStart         DateTime?     @map("service_start")
+  serviceEnd           DateTime?     @map("service_end")
+  netCents             Int           @map("net_cents")
+  vatCents             Int           @default(0) @map("vat_cents")
+  grossCents           Int           @map("gross_cents")
+  currency             String        @db.Char(3)
+  fxRate               Decimal?      @map("fx_rate") @db.Decimal(18, 8)
+  status               InvoiceStatus @default(DRAFT)
+  source               InvoiceSource @default(MANUAL)
+  fileKey              String?       @map("file_key")
+  extraction           Json?
+  extractionConfidence Float?        @map("extraction_confidence")
+  duplicateOfId        String?       @map("duplicate_of_id") @db.Uuid
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor      Vendor        @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  duplicateOf Invoice?      @relation("InvoiceDuplicate", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates  Invoice[]     @relation("InvoiceDuplicate")
+  lines       InvoiceLine[]
+
+  @@unique([tenantId, vendorId, invoiceNumber])
+  @@index([tenantId, accrualDate])
+  @@index([tenantId, status])
+  @@map("invoice")
+}
+
+/// Línea de factura. `concept` es el plan de conceptos de `finance-core`, no
+/// texto libre: es lo que permite que el gasto cuadre con el presupuesto y que
+/// el `% de gasto gobernado` del Viability Score se pueda calcular.
+model InvoiceLine {
+  id             String       @id @default(uuid()) @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  invoiceId      String       @map("invoice_id") @db.Uuid
+  lineNumber     Int          @map("line_number")
+  description    String
+  quantity       Decimal      @default(1) @db.Decimal(18, 4)
+  unitPriceCents Int          @map("unit_price_cents")
+  netCents       Int          @map("net_cents")
+  costType       CostType     @map("cost_type")
+  concept        SpendConcept
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, lineNumber])
+  @@index([tenantId, concept])
+  @@index([invoiceId])
+  @@map("invoice_line")
 }
