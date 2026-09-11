@@ -162,6 +162,7 @@ model User {
   auditLogs           AuditLog[]
   tenantParamVersions TenantParamVersion[]
   invitationsSent     Invitation[]
+  invoicesCreated     Invoice[]
 
   @@map("user")
 }
@@ -292,18 +293,21 @@ model Invoice {
   extraction           Json?
   extractionConfidence Float?        @map("extraction_confidence")
   duplicateOfId        String?       @map("duplicate_of_id") @db.Uuid
+  createdById          String?       @map("created_by_id") @db.Uuid
   createdAt            DateTime      @default(now()) @map("created_at")
   updatedAt            DateTime      @updatedAt @map("updated_at")
 
   tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   vendor      Vendor        @relation(fields: [vendorId], references: [id], onDelete: Restrict)
   duplicateOf Invoice?      @relation("InvoiceDuplicate", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  createdBy   User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
   duplicates  Invoice[]     @relation("InvoiceDuplicate")
   lines       InvoiceLine[]
 
   @@unique([tenantId, vendorId, invoiceNumber])
   @@index([tenantId, accrualDate])
   @@index([tenantId, status])
+  @@index([tenantId, createdById])
   @@map("invoice")
 }
 
