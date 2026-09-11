@@ -96,7 +96,9 @@ export default async function FacturasPage({
   readonly searchParams: Promise<Parametros>;
 }) {
   const principal = await requireAnyPermission(['invoices:read', 'invoices:create']);
-  const escrito = leer(await searchParams);
+  const parametros = await searchParams;
+  const escrito = leer(parametros);
+  const alta = texto(parametros['alta']).trim();
   const { filtro, avisos } = interpretar(escrito);
 
   const { pagina, totales } = await db().withTenant(principal.tenantId, async (tx) => ({
@@ -116,7 +118,19 @@ export default async function FacturasPage({
   return (
     <Shell actual="/facturas">
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-semibold">Facturas</h1>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold">Facturas</h1>
+          <Button asChild size="sm">
+            <Link href="/facturas/nueva">Nueva factura</Link>
+          </Button>
+        </div>
+
+        {alta !== '' ? (
+          <p className="rounded border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
+            Factura {alta} guardada en borrador. Para que cuente como gasto hay que mandarla a
+            revisión y aprobarla.
+          </p>
+        ) : null}
 
         <form method="get" className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm">
