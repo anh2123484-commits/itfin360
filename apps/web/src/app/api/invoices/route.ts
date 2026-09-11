@@ -1,10 +1,10 @@
 import { InvoiceStatus } from '@itfin360/db';
-import { type CivilDate, parseIsoDate, validateInvoice } from '@itfin360/finance-core';
+import { type CivilDate, parseIsoDate } from '@itfin360/finance-core';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { aInstanteUtc, esFechaIso } from '@/lib/fechas';
+import { esFechaIso } from '@/lib/fechas';
 import { HttpError, parseJson, route } from '@/lib/http';
 import {
   type FiltroFacturas,
@@ -12,7 +12,8 @@ import {
   LIMITE_POR_DEFECTO,
   listarFacturas,
 } from '@/lib/invoice-query';
-import { altaFactura, conNumerosDeLinea, paraValidar } from '@/lib/invoices';
+import { altaDeFactura, esRechazo } from '@/lib/invoice-ops';
+import { altaFactura } from '@/lib/invoices';
 import { requireAnyPermission, requirePermission } from '@/lib/tenant-context';
 
 /**
@@ -74,94 +75,43 @@ function fechaFiltro(valor: string, nombre: string): CivilDate {
 export const POST = route(async (request: Request) => {
   const principal = await requirePermission('invoices:create');
   const datos = await parseJson(request, altaFactura);
-  const lineas = conNumerosDeLinea(datos.lines);
-
-  // El motor decide si la factura cuadra. 422 y no 400: el JSON está bien
-  // formado y bien tipado; lo que no cuadra es la aritmética.
-  const problemas = validateInvoice(paraValidar(datos, lineas));
-  if (problemas.length > 0) {
-    return NextResponse.json({ error: 'incoherent_invoice', issues: problemas }, { status: 422 });
-  }
 
   return db().withTenant(principal.tenantId, async (tx) => {
-    // RLS hace que un proveedor de otro tenant no se vea: sin esta consulta, la
-    // clave ajena reventaría la transacción y saldría un 500 en vez de un 404.
-    const vendor = await tx.vendor.findUnique({
-      where: { id: datos.vendorId },
-      select: { id: true },
-    });
-    if (!vendor) throw new HttpError(404, 'vendor_not_found');
+    const resultado = await altaDeFactura(tx, principal, datos);
 
-    // Duplicado exacto (F2-03): mismo proveedor y mismo número. Se comprueba
-    // antes de insertar para poder decir **cuál** es la factura que ya existe;
-    // dejar que saltara el índice único abortaría la transacción y el 409 no
-    // podría llevar la referencia.
-    const existente = await tx.invoice.findFirst({
-      where: { vendorId: datos.vendorId, invoiceNumber: datos.invoiceNumber },
-      select: { id: true, status: true },
-    });
-    if (existente) {
+    if (esRechazo(resultado)) {
+      // 422 y no 400 en el descuadre: el JSON está bien formado y bien tipado;
+      // lo que no cuadra es la aritmética. Son dos errores distintos para quien
+      // consume la API, y quien importa un CSV necesita distinguirlos.
+      if (resultado.motivo === 'incoherente') {
+        return NextResponse.json(
+          { error: 'incoherent_invoice', issues: resultado.problemas },
+          { status: 422 },
+        );
+      }
+      if (resultado.motivo === 'proveedor_desconocido') {
+        throw new HttpError(404, 'vendor_not_found');
+      }
       return NextResponse.json(
         {
           error: 'invoice_duplicate',
-          existingInvoiceId: existente.id,
-          existingStatus: existente.status,
+          existingInvoiceId: resultado.existente.id,
+          existingStatus: resultado.existente.status,
         },
         { status: 409 },
       );
     }
 
-    const factura = await tx.invoice.create({
-      data: {
-        tenantId: principal.tenantId,
-        vendorId: datos.vendorId,
-        invoiceNumber: datos.invoiceNumber,
-        issueDate: aInstanteUtc(datos.issueDate),
-        accrualDate: aInstanteUtc(datos.accrualDate),
-        dueDate: datos.dueDate === undefined ? null : aInstanteUtc(datos.dueDate),
-        serviceStart: datos.serviceStart === undefined ? null : aInstanteUtc(datos.serviceStart),
-        serviceEnd: datos.serviceEnd === undefined ? null : aInstanteUtc(datos.serviceEnd),
-        netCents: datos.netCents,
-        vatCents: datos.vatCents,
-        grossCents: datos.grossCents,
-        currency: datos.currency,
-        fxRate: datos.fxRate ?? null,
-        status: 'DRAFT',
-        source: 'MANUAL',
-        createdById: principal.userId,
-        lines: {
-          create: lineas.map((linea) => ({
-            tenantId: principal.tenantId,
-            lineNumber: linea.lineNumber,
-            description: linea.description,
-            quantity: linea.quantity,
-            unitPriceCents: linea.unitPriceCents,
-            netCents: linea.netCents,
-            costType: linea.costType,
-            concept: linea.concept,
-          })),
-        },
+    return NextResponse.json(
+      {
+        id: resultado.id,
+        invoiceNumber: resultado.invoiceNumber,
+        status: resultado.status,
+        grossCents: resultado.grossCents,
+        currency: resultado.currency,
+        lines: resultado.lineas,
       },
-      select: { id: true, invoiceNumber: true, status: true, grossCents: true, currency: true },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        tenantId: principal.tenantId,
-        actorId: principal.userId,
-        action: 'invoice.created',
-        entity: 'invoice',
-        entityId: factura.id,
-        after: {
-          status: factura.status,
-          invoiceNumber: factura.invoiceNumber,
-          grossCents: factura.grossCents,
-          currency: factura.currency,
-          lines: lineas.length,
-        },
-      },
-    });
-
-    return NextResponse.json({ ...factura, lines: lineas.length }, { status: 201 });
+      { status: 201 },
+    );
   });
 });
