@@ -29,6 +29,26 @@ export {
 } from './identity.js';
 export { databaseRolesSql, databaseRolesSpecFromEnv, type DatabaseRolesSpec } from './roles.js';
 export {
+  availableActions,
+  canEditInvoice,
+  INVOICE_ROLES,
+  INVOICE_STATUSES,
+  INVOICE_TRANSITIONS,
+  type InvoiceAction,
+  type InvoiceAuditEntry,
+  type InvoiceForTransition,
+  type InvoiceRole,
+  type RefusalKind,
+  requestTransition,
+  TERMINAL_STATUSES,
+  type TransitionAccepted,
+  type TransitionOutcome,
+  type TransitionRefusal,
+  type TransitionRejected,
+  type TransitionRequest,
+  type TransitionRule,
+} from './invoice-workflow.js';
+export {
   assertTenantId,
   createTenantAwarePrismaClient,
   type TenantAwarePrismaClient,
@@ -36,14 +56,25 @@ export {
   withTenant,
   withTenantExtension,
 } from './tenant-context.js';
-export { Plan, Role } from './generated/prisma/enums.js';
+export {
+  CostType,
+  Criticality,
+  InvoiceSource,
+  InvoiceStatus,
+  Plan,
+  Role,
+  SpendConcept,
+} from './generated/prisma/enums.js';
 export type {
   AuditLogModel as AuditLog,
   InvitationModel as Invitation,
+  InvoiceLineModel as InvoiceLine,
+  InvoiceModel as Invoice,
   MembershipModel as Membership,
   TenantModel as Tenant,
   TenantParamVersionModel as TenantParamVersion,
   UserModel as User,
+  VendorModel as Vendor,
 } from './generated/prisma/models.js';
 export { Prisma } from './generated/prisma/client.js';
 
