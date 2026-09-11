@@ -22,6 +22,24 @@ export {
   type Money,
 } from './money.js';
 
+/**
+ * Calendario civil. Se expone porque `ValidatableInvoice` habla en `CivilDate`:
+ * sin esto, quien consume el motor no puede construir lo que el motor pide.
+ */
+export {
+  addMonths,
+  compareDates,
+  daysInMonth,
+  isLeapYear,
+  monthKey,
+  monthlyDayCounts,
+  monthsBetween,
+  parseIsoDate,
+  startOfNextMonth,
+  toEpochDay,
+  type CivilDate,
+} from './dates.js';
+
 export {
   MONTHS_IN_PERIOD,
   normalizeRecurring,
