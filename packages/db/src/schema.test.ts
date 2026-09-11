@@ -27,6 +27,9 @@ const sql = migrations.map((migration) => migration.sql).join('\n');
 /** Tablas con datos de tenant: llevan `tenant_id` (o son el propio tenant). */
 const TENANT_TABLES = ['tenant', 'tenant_param_version', 'membership', 'audit_log'] as const;
 
+/** Tablas de F2-01: proveedores, facturas y líneas. */
+const F2_TABLES = ['vendor', 'invoice', 'invoice_line'] as const;
+
 describe('migraciones de tenancy', () => {
   it('crea las cinco tablas del esquema base', () => {
     for (const table of [...TENANT_TABLES, 'user']) {
@@ -57,6 +60,37 @@ describe('migraciones de tenancy', () => {
 
   it('documenta el motivo de cada tabla eximida', () => {
     expect(sql).toMatch(/--\s*rls-exempt:\s*user\s*—\s*\S+/);
+  });
+
+  it('crea las tres tablas de proveedores, facturas y líneas (F2-01)', () => {
+    for (const table of F2_TABLES) {
+      expect(sql).toContain(`CREATE TABLE "${table}"`);
+    }
+  });
+
+  it('activa y fuerza RLS en las tablas de F2-01, con la política contra NULLIF', () => {
+    for (const table of F2_TABLES) {
+      expect(sql).toContain(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`);
+      expect(sql).toContain(`ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`);
+      const policy = new RegExp(
+        `CREATE POLICY tenant_isolation ON "${table}"\\s+USING \\("tenant_id" = NULLIF\\(current_setting\\('app\\.current_tenant', true\\), ''\\)::uuid\\)`,
+      );
+      expect(sql).toMatch(policy);
+    }
+  });
+
+  it('la unicidad (tenant, proveedor, número) bloquea el duplicado exacto en la base', () => {
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX "invoice_tenant_id_vendor_id_invoice_number_key" ON "invoice"("tenant_id", "vendor_id", "invoice_number")',
+    );
+  });
+
+  it('la categoría de una línea es un enum, no texto libre', () => {
+    // El hueco que cierra F2-01: con texto libre, "SaaS" y "Saas" son dos
+    // líneas presupuestarias distintas y el % de gasto gobernado no se calcula.
+    expect(sql).toContain('CREATE TYPE "spend_concept" AS ENUM');
+    const create = /CREATE TABLE "invoice_line" \(([^;]*)\)/s.exec(sql)?.[1] ?? '';
+    expect(create).toContain('"concept" "spend_concept" NOT NULL');
   });
 
   it('sólo exime tablas sin columna `tenant_id`', () => {
