@@ -1,7 +1,6 @@
 'use client';
 
-import { SpendConcept } from '@itfin360/db';
-import { cents, CONCEPT_DEFINITIONS, lineNetCents } from '@itfin360/finance-core';
+import { cents, CONCEPT_DEFINITIONS, lineNetCents, SPEND_CONCEPTS } from '@itfin360/finance-core';
 import { Button } from '@itfin360/ui';
 import { useState } from 'react';
 
@@ -19,6 +18,12 @@ import { importeEditable, parsearCantidad, parsearImporte } from '@/lib/importes
  * El neto de cada línea y la suma salen de `finance-core`, las mismas funciones
  * que valida el servidor. Reescribir la aritmética aquí sería tener dos motores
  * de cálculo, y el de la pantalla sería el que nadie prueba.
+ *
+ * Nada de aquí importa `@itfin360/db`, ni siquiera para leer un enum: ese
+ * paquete arrastra el cliente Prisma y `pg`, y `pg` pide `fs` y `dns`, que en
+ * un navegador no existen. La lista de conceptos sale de `finance-core`, que es
+ * puro; `concept-enum.test.ts` garantiza que esa lista y el enum del esquema no
+ * pueden separarse.
  */
 
 interface Proveedor {
@@ -199,9 +204,9 @@ export function FormularioFactura({
                 onChange={(e) => cambiar(linea.clave, 'concept', e.target.value)}
                 className="w-52 rounded border px-3 py-2"
               >
-                {Object.keys(SpendConcept).map((concepto) => (
+                {SPEND_CONCEPTS.map((concepto) => (
                   <option key={concepto} value={concepto}>
-                    {CONCEPT_DEFINITIONS[concepto as keyof typeof CONCEPT_DEFINITIONS].label}
+                    {CONCEPT_DEFINITIONS[concepto].label}
                   </option>
                 ))}
               </select>
