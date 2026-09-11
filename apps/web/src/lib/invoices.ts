@@ -1,6 +1,7 @@
 import { CostType, SpendConcept } from '@itfin360/db';
 import {
   cents,
+  type CivilDate,
   DEFAULT_BASE_CURRENCY,
   parseIsoDate,
   type ValidatableInvoice,
@@ -91,6 +92,90 @@ export function conNumerosDeLinea(lines: readonly LineaEntrante[]): LineaNumerad
 
 /** Línea ya numerada: lo que valida el motor, más el texto que guarda la base. */
 export type LineaNumerada = ValidatableInvoiceLine & { readonly description: string };
+
+/**
+ * Edición de factura.
+ *
+ * Todo opcional, pero el cuerpo vacío se rechaza: un PATCH que no cambia nada
+ * dejaría un apunte de auditoría mintiendo. `null` en un campo opcional lo
+ * borra, que es distinto de no mandarlo; sin esa distinción no habría forma de
+ * quitar un vencimiento puesto por error.
+ *
+ * `lines` se reemplaza entero, no se parchea línea a línea. Parchear líneas
+ * sueltas obliga a que el cliente lleve la cuenta de los identificadores y
+ * abre la puerta a dejar la factura descuadrada a mitad de camino; aquí entra
+ * el juego completo y se valida el resultado antes de escribir nada.
+ */
+export const edicionFactura = z
+  .object({
+    vendorId: z.uuid().optional(),
+    invoiceNumber: z.string().trim().min(1).max(100).optional(),
+    issueDate: FECHA_CIVIL.optional(),
+    accrualDate: FECHA_CIVIL.optional(),
+    dueDate: FECHA_CIVIL.nullable().optional(),
+    serviceStart: FECHA_CIVIL.nullable().optional(),
+    serviceEnd: FECHA_CIVIL.nullable().optional(),
+    netCents: CENTIMOS.optional(),
+    vatCents: CENTIMOS.optional(),
+    grossCents: CENTIMOS.optional(),
+    currency: DIVISA.optional(),
+    fxRate: z.number().positive().nullable().optional(),
+    lines: z.array(lineaFactura).min(1).max(500).optional(),
+  })
+  .refine((valor) => Object.keys(valor).length > 0, { message: 'sin cambios' });
+
+/** Cambios validados que llegan del cliente. */
+export type CambiosFactura = z.infer<typeof edicionFactura>;
+
+/** La factura como está guardada, en los términos del motor. */
+export interface FacturaGuardada {
+  readonly netCents: number;
+  readonly vatCents: number;
+  readonly grossCents: number;
+  readonly currency: string;
+  readonly fxRate: number | null;
+  readonly issueDate: CivilDate;
+  readonly dueDate: CivilDate | null;
+  readonly serviceStart: CivilDate | null;
+  readonly serviceEnd: CivilDate | null;
+  readonly lines: readonly LineaNumerada[];
+}
+
+/** `null` borra, `undefined` deja como estaba. */
+function resuelve<T>(cambio: T | null | undefined, actual: T | null): T | undefined {
+  if (cambio === undefined) return actual ?? undefined;
+  return cambio ?? undefined;
+}
+
+/**
+ * La factura **tal y como quedaría** tras aplicar los cambios.
+ *
+ * Se valida el resultado, no el parche: cambiar sólo el IVA puede descuadrar
+ * una factura que estaba bien, y eso hay que verlo antes de escribir.
+ */
+export function facturaResultante(
+  actual: FacturaGuardada,
+  cambios: CambiosFactura,
+  lineas: readonly LineaNumerada[],
+): ValidatableInvoice {
+  const fx = resuelve(cambios.fxRate, actual.fxRate);
+  const vence = resuelve(cambios.dueDate, actual.dueDate);
+  const desde = resuelve(cambios.serviceStart, actual.serviceStart);
+  const hasta = resuelve(cambios.serviceEnd, actual.serviceEnd);
+
+  return {
+    netCents: cents(cambios.netCents ?? actual.netCents),
+    vatCents: cents(cambios.vatCents ?? actual.vatCents),
+    grossCents: cents(cambios.grossCents ?? actual.grossCents),
+    currency: cambios.currency ?? actual.currency,
+    ...(fx === undefined ? {} : { fxRate: fx }),
+    issueDate: cambios.issueDate ?? actual.issueDate,
+    ...(vence === undefined ? {} : { dueDate: vence }),
+    ...(desde === undefined ? {} : { serviceStart: desde }),
+    ...(hasta === undefined ? {} : { serviceEnd: hasta }),
+    lines: lineas,
+  };
+}
 
 /**
  * Traduce la factura entrante a lo que el motor sabe comprobar.
