@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm db:migrate:deploy && pnpm turbo run build --filter=@itfin360/web",
+  "outputDirectory": "apps/web/.next"
+}
