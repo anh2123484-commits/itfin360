@@ -4,11 +4,18 @@ import { describe, expect, it } from 'vitest';
 import { COLOR_ESTADO, ETIQUETA_ESTADO, formatearFecha, formatearImporte } from '@/lib/formato';
 
 /** `Intl` separa el importe de la divisa con espacio duro según la versión de ICU. */
-const normal = (texto: string): string => texto.replace(/[\u00A0\u202F]/g, ' ');
+const normal = (texto: string): string => texto.replace(/ | /g, ' ');
 
 describe('formatearImporte', () => {
   it('céntimos a euros con coma decimal y punto de millares', () => {
-    expect(normal(formatearImporte(123_456, 'EUR'))).toBe('1.234,56 €');
+    expect(normal(formatearImporte(1_234_567, 'EUR'))).toBe('12.345,67 €');
+  });
+
+  it('en castellano, cuatro cifras van sin punto', () => {
+    // CLDR fija `minimumGroupingDigits: 2` para el español: 1234 se escribe
+    // seguido y la agrupación empieza en 10.000. No es un fallo de formato, y
+    // por eso el test de arriba usa una cifra de cinco dígitos.
+    expect(normal(formatearImporte(123_456, 'EUR'))).toBe('1234,56 €');
   });
 
   it('siempre dos decimales, aunque sean cero', () => {
@@ -25,8 +32,8 @@ describe('formatearImporte', () => {
   });
 
   it('otra divisa se ve con su símbolo', () => {
-    expect(formatearImporte(123_456, 'USD')).toContain('1.234,56');
-    expect(formatearImporte(123_456, 'USD')).not.toContain('€');
+    expect(formatearImporte(1_234_567, 'USD')).toContain('12.345,67');
+    expect(formatearImporte(1_234_567, 'USD')).not.toContain('€');
   });
 });
 
