@@ -66,8 +66,8 @@ export const POST = route(async (request: Request) => {
         data: {
           tenantId: principal.tenantId,
           name: datos.name,
-          legalName: textoOpcional(datos.legalName) ?? null,
-          taxId: textoOpcional(datos.taxId) ?? null,
+          legalName: textoOpcional(datos.legalName),
+          taxId: textoOpcional(datos.taxId),
           country: datos.country ?? null,
           criticality: datos.criticality ?? 'MEDIUM',
         },
