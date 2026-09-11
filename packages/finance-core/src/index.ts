@@ -237,5 +237,18 @@ export {
   type SeatUsage,
 } from './contracts.js';
 
+export {
+  DEFAULT_BASE_CURRENCY,
+  isCoherentInvoice,
+  lineNetCents,
+  linesNetCents,
+  validateInvoice,
+  type InvoiceIssue,
+  type InvoiceIssueCode,
+  type InvoiceValidationOptions,
+  type ValidatableInvoice,
+  type ValidatableInvoiceLine,
+} from './invoices.js';
+
 /** Identificador del paquete, útil para trazas y diagnósticos. */
 export const FINANCE_CORE_PACKAGE = '@itfin360/finance-core' as const;
