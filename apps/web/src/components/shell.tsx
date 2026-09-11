@@ -30,6 +30,7 @@ interface Seccion {
 const SECCIONES: readonly Seccion[] = [
   { href: '/', texto: 'Inicio', permisos: [] },
   { href: '/facturas', texto: 'Facturas', permisos: ['invoices:read', 'invoices:create'] },
+  { href: '/proveedores', texto: 'Proveedores', permisos: ['invoices:read', 'invoices:create'] },
 ];
 
 export async function Shell({
