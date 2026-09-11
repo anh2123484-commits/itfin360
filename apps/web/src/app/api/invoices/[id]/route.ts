@@ -114,8 +114,8 @@ function comoGuardada(fila: {
 }
 
 /** Las fechas salen como `YYYY-MM-DD`, nunca como instante con hora. */
-function paraRespuesta<T extends object>(fila: T): Record<string, unknown> {
-  const salida: Record<string, unknown> = { ...fila };
+function paraRespuesta(fila: object): Record<string, unknown> {
+  const salida = { ...fila } as Record<string, unknown>;
   for (const campo of CAMPOS_FECHA) {
     const valor = salida[campo];
     salida[campo] = valor instanceof Date ? aIso(valor) : null;
@@ -130,11 +130,21 @@ function paraRespuesta<T extends object>(fila: T): Record<string, unknown> {
   return salida;
 }
 
-/** Una fecha en la auditoría se lee mejor como día que como instante. */
-function valorAuditable(valor: unknown): unknown {
+/**
+ * Lo que puede ir en el apunte de auditoría, que es una columna JSON.
+ *
+ * Una fecha se lee mejor como día que como instante, y un `Decimal` de Prisma
+ * no es JSON: se guarda su representación textual, que es exacta.
+ */
+type ValorAuditable = string | number | boolean | null;
+
+function valorAuditable(valor: unknown): ValorAuditable {
   if (valor instanceof Date) return aIso(valor);
-  if (typeof valor === 'object' && valor !== null) return String(valor);
-  return valor;
+  if (valor === null || valor === undefined) return null;
+  if (typeof valor === 'string' || typeof valor === 'number' || typeof valor === 'boolean') {
+    return valor;
+  }
+  return String(valor);
 }
 
 export const GET = route(
@@ -268,8 +278,8 @@ export const PATCH = route(
       // enteras haría ilegible el historial de una factura de cien líneas.
       const previa = actual as unknown as Record<string, unknown>;
       const nueva = despues as unknown as Record<string, unknown>;
-      const antes: Record<string, unknown> = {};
-      const ahora: Record<string, unknown> = {};
+      const antes: Record<string, ValorAuditable> = {};
+      const ahora: Record<string, ValorAuditable> = {};
       for (const campo of Object.keys(data)) {
         if (campo === 'lines') continue;
         antes[campo] = valorAuditable(previa[campo]);
