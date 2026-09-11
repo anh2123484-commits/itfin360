@@ -48,6 +48,9 @@ const A = {
   membership: 'aaaaaaa3-0000-4000-8000-000000000001',
   auditLog: 'aaaaaaa4-0000-4000-8000-000000000001',
   invitation: 'aaaaaaa5-0000-4000-8000-000000000001',
+  vendor: 'aaaaaaa6-0000-4000-8000-000000000001',
+  invoice: 'aaaaaaa7-0000-4000-8000-000000000001',
+  invoiceLine: 'aaaaaaa8-0000-4000-8000-000000000001',
 } as const;
 const B = {
   user: 'bbbbbbb1-0000-4000-8000-000000000001',
@@ -55,6 +58,9 @@ const B = {
   membership: 'bbbbbbb3-0000-4000-8000-000000000001',
   auditLog: 'bbbbbbb4-0000-4000-8000-000000000001',
   invitation: 'bbbbbbb5-0000-4000-8000-000000000001',
+  vendor: 'bbbbbbb6-0000-4000-8000-000000000001',
+  invoice: 'bbbbbbb7-0000-4000-8000-000000000001',
+  invoiceLine: 'bbbbbbb8-0000-4000-8000-000000000001',
 } as const;
 
 /** B tiene el doble de filas y fechas posteriores: cualquier fuga cambia counts y máximos. */
@@ -138,6 +144,95 @@ async function seed(): Promise<void> {
         entity: 'tenant_param_version',
         entityId: B.params,
         at: FECHA_B,
+      },
+    ],
+  });
+  await migrator.vendor.createMany({
+    data: [
+      { id: A.vendor, tenantId: TENANT_A, name: 'Proveedor A Ficticio', taxId: 'A00000001' },
+      { id: B.vendor, tenantId: TENANT_B, name: 'Proveedor B Ficticio', taxId: 'B00000001' },
+      {
+        id: 'bbbbbbb6-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        name: 'Proveedor B Segundo',
+        taxId: 'B00000002',
+      },
+    ],
+  });
+  await migrator.invoice.createMany({
+    data: [
+      {
+        id: A.invoice,
+        tenantId: TENANT_A,
+        vendorId: A.vendor,
+        invoiceNumber: 'F-A-0001',
+        issueDate: FECHA_A,
+        accrualDate: FECHA_A,
+        netCents: 100_000,
+        grossCents: 121_000,
+        vatCents: 21_000,
+        currency: 'EUR',
+      },
+      {
+        id: B.invoice,
+        tenantId: TENANT_B,
+        vendorId: B.vendor,
+        invoiceNumber: 'F-B-0001',
+        issueDate: FECHA_B,
+        accrualDate: FECHA_B,
+        netCents: 200_000,
+        grossCents: 242_000,
+        vatCents: 42_000,
+        currency: 'EUR',
+      },
+      {
+        id: 'bbbbbbb7-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        vendorId: B.vendor,
+        invoiceNumber: 'F-B-0002',
+        issueDate: FECHA_B,
+        accrualDate: FECHA_B,
+        netCents: 300_000,
+        grossCents: 363_000,
+        vatCents: 63_000,
+        currency: 'EUR',
+      },
+    ],
+  });
+  await migrator.invoiceLine.createMany({
+    data: [
+      {
+        id: A.invoiceLine,
+        tenantId: TENANT_A,
+        invoiceId: A.invoice,
+        lineNumber: 1,
+        description: 'Suscripcion ficticia de A',
+        unitPriceCents: 100_000,
+        netCents: 100_000,
+        costType: 'OPEX_RECURRING',
+        concept: 'SAAS_SUBSCRIPTION',
+      },
+      {
+        id: B.invoiceLine,
+        tenantId: TENANT_B,
+        invoiceId: B.invoice,
+        lineNumber: 1,
+        description: 'Suscripcion ficticia de B',
+        unitPriceCents: 200_000,
+        netCents: 200_000,
+        costType: 'OPEX_RECURRING',
+        concept: 'SAAS_SUBSCRIPTION',
+      },
+      {
+        id: 'bbbbbbb8-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        invoiceId: 'bbbbbbb7-0000-4000-8000-000000000002',
+        lineNumber: 1,
+        description: 'Auditoria ficticia de B',
+        unitPriceCents: 300_000,
+        netCents: 300_000,
+        costType: 'OPEX_ONE_OFF',
+        concept: 'SECURITY_AUDIT',
       },
     ],
   });
@@ -284,6 +379,39 @@ const SONDAS: readonly SondaDeModelo[] = [
       (await db.invitation.updateMany({ where: { id }, data: { role: 'OWNER' } })).count,
     borrarPorId: async (db, id) => (await db.invitation.deleteMany({ where: { id } })).count,
   },
+  {
+    modelo: 'vendor',
+    filasDeA: 1,
+    idDeB: B.vendor,
+    contar: (db) => db.vendor.count(),
+    tenantIdsVisibles: async (db) => (await db.vendor.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.vendor.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.vendor.updateMany({ where: { id }, data: { name: 'Intruso' } })).count,
+    borrarPorId: async (db, id) => (await db.vendor.deleteMany({ where: { id } })).count,
+  },
+  {
+    modelo: 'invoice',
+    filasDeA: 1,
+    idDeB: B.invoice,
+    contar: (db) => db.invoice.count(),
+    tenantIdsVisibles: async (db) => (await db.invoice.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.invoice.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.invoice.updateMany({ where: { id }, data: { status: 'POSTED' } })).count,
+    borrarPorId: async (db, id) => (await db.invoice.deleteMany({ where: { id } })).count,
+  },
+  {
+    modelo: 'invoiceLine',
+    filasDeA: 1,
+    idDeB: B.invoiceLine,
+    contar: (db) => db.invoiceLine.count(),
+    tenantIdsVisibles: async (db) => (await db.invoiceLine.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.invoiceLine.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.invoiceLine.updateMany({ where: { id }, data: { description: 'Intruso' } })).count,
+    borrarPorId: async (db, id) => (await db.invoiceLine.deleteMany({ where: { id } })).count,
+  },
 ];
 
 /** Ejecuta `fn` en el cliente de aplicación con `app.current_tenant` fijado a `valor`. */
@@ -310,10 +438,11 @@ describe('aislamiento entre tenants con RLS', () => {
     >(Prisma.sql`
       SELECT relname, relrowsecurity, relforcerowsecurity
       FROM pg_class
-      WHERE relname IN ('tenant', 'tenant_param_version', 'membership', 'audit_log', 'invitation')
+      WHERE relname IN ('tenant', 'tenant_param_version', 'membership', 'audit_log', 'invitation',
+                        'vendor', 'invoice', 'invoice_line')
       ORDER BY relname
     `);
-    expect(tablas).toHaveLength(5);
+    expect(tablas).toHaveLength(8);
     for (const tabla of tablas) {
       expect(tabla, tabla.relname).toMatchObject({
         relrowsecurity: true,
@@ -329,7 +458,7 @@ describe('aislamiento entre tenants con RLS', () => {
       WHERE schemaname = 'public'
       ORDER BY tablename
     `);
-    expect(politicas).toHaveLength(5);
+    expect(politicas).toHaveLength(8);
     for (const politica of politicas) {
       expect(politica.policyname, politica.tablename).toBe('tenant_isolation');
       expect(politica.qual, politica.tablename).toContain('NULLIF');
