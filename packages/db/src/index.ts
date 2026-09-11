@@ -29,6 +29,16 @@ export {
 } from './identity.js';
 export { databaseRolesSql, databaseRolesSpecFromEnv, type DatabaseRolesSpec } from './roles.js';
 export {
+  FOREIGN_KEY_CONSTRAINT,
+  isForeignKeyViolation,
+  isRecordNotFound,
+  isUniqueConstraintViolation,
+  prismaErrorCode,
+  RECORD_NOT_FOUND,
+  UNIQUE_CONSTRAINT,
+  uniqueConstraintFields,
+} from './errors.js';
+export {
   availableActions,
   canEditInvoice,
   INVOICE_ROLES,

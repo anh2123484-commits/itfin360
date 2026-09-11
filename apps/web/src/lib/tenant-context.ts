@@ -82,6 +82,20 @@ export async function requirePermission(permission: Permission): Promise<Princip
   return principal;
 }
 
+/**
+ * Principal con **alguno** de los permisos dados; 403 `forbidden` si ninguno.
+ *
+ * Hace falta porque hay listas que sirven a dos permisos distintos: la de
+ * proveedores la usa quien lee facturas (`invoices:read`) y quien las registra
+ * (`invoices:create`), y `CONTRIBUTOR` sólo tiene el segundo. Exigir uno solo
+ * dejaría el desplegable de proveedores vacío justo para el rol que más lo usa.
+ */
+export async function requireAnyPermission(permissions: readonly Permission[]): Promise<Principal> {
+  const principal = await requirePrincipal();
+  if (!permissions.some((permission) => can(principal, permission))) throw forbidden();
+  return principal;
+}
+
 /** Cambia el tenant activo tras comprobar la pertenencia. */
 export async function switchActiveTenant(tenantId: string): Promise<UserMembership> {
   const { memberships } = await requireUser();
