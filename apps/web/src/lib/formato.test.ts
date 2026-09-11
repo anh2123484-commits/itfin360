@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { COLOR_ESTADO, ETIQUETA_ESTADO, formatearFecha, formatearImporte } from '@/lib/formato';
 
 /** `Intl` separa el importe de la divisa con espacio duro según la versión de ICU. */
-const normal = (texto: string): string => texto.replace(/ | /g, ' ');
+const normal = (texto: string): string => texto.replace(/[\u00A0\u202F]/g, ' ');
 
 describe('formatearImporte', () => {
   it('céntimos a euros con coma decimal y punto de millares', () => {
