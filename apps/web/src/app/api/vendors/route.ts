@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { parseJson, route } from '@/lib/http';
 import { requireAnyPermission, requirePermission } from '@/lib/tenant-context';
+import { LIMITE_MAXIMO, LIMITE_POR_DEFECTO, listarProveedores } from '@/lib/vendor-query';
 import {
   altaProveedor,
   CAMPOS_PROVEEDOR,
@@ -20,9 +21,6 @@ import {
  * para el rol que más lo usa.
  */
 
-const LIMITE_POR_DEFECTO = 50;
-const LIMITE_MAXIMO = 100;
-
 export const GET = route(async (request: Request) => {
   const principal = await requireAnyPermission(['invoices:read', 'invoices:create']);
   const parametros = new URL(request.url).searchParams;
@@ -33,27 +31,16 @@ export const GET = route(async (request: Request) => {
   const limite =
     Number.isInteger(pedido) && pedido > 0 ? Math.min(pedido, LIMITE_MAXIMO) : LIMITE_POR_DEFECTO;
 
-  return db().withTenant(principal.tenantId, async (tx) => {
-    // Paginación por cursor sobre el nombre, que es único dentro del tenant.
-    // Por desplazamiento (`skip`) la lista se descuadraría en cuanto alguien
-    // diera de alta un proveedor mientras otro la recorre.
-    const encontrados = await tx.vendor.findMany({
-      where: {
-        ...(busqueda === '' ? {} : { name: { contains: busqueda, mode: 'insensitive' as const } }),
-        ...(cursor === undefined ? {} : { name: { gt: cursor } }),
-      },
-      select: CAMPOS_PROVEEDOR,
-      orderBy: { name: 'asc' },
-      take: limite + 1,
-    });
-
-    const hayMas = encontrados.length > limite;
-    const items = hayMas ? encontrados.slice(0, limite) : encontrados;
-    return NextResponse.json({
-      items,
-      nextCursor: hayMas ? (items.at(-1)?.name ?? null) : null,
-    });
-  });
+  // La consulta vive en `@/lib/vendor-query`, compartida con la pantalla.
+  return db().withTenant(principal.tenantId, async (tx) =>
+    NextResponse.json(
+      await listarProveedores(tx, {
+        busqueda,
+        limite,
+        ...(cursor === undefined ? {} : { cursor }),
+      }),
+    ),
+  );
 });
 
 export const POST = route(async (request: Request) => {
