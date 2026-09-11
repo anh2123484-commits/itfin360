@@ -4,8 +4,14 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { aInstanteUtc, aIso, esFechaIso } from '@/lib/fechas';
+import { aInstanteUtc, esFechaIso } from '@/lib/fechas';
 import { HttpError, parseJson, route } from '@/lib/http';
+import {
+  type FiltroFacturas,
+  LIMITE_MAXIMO,
+  LIMITE_POR_DEFECTO,
+  listarFacturas,
+} from '@/lib/invoice-query';
 import { altaFactura, conNumerosDeLinea, paraValidar } from '@/lib/invoices';
 import { requireAnyPermission, requirePermission } from '@/lib/tenant-context';
 
@@ -18,9 +24,6 @@ import { requireAnyPermission, requirePermission } from '@/lib/tenant-context';
  * apunte de auditoría de esa aprobación, que es justo lo que F2-02 exige.
  */
 
-const LIMITE_POR_DEFECTO = 50;
-const LIMITE_MAXIMO = 100;
-
 const filtros = z.object({
   status: z.enum(InvoiceStatus).optional(),
   vendorId: z.uuid().optional(),
@@ -32,60 +35,30 @@ const filtros = z.object({
   limit: z.coerce.number().int().positive().max(LIMITE_MAXIMO).optional(),
 });
 
-const CAMPOS_LISTA = {
-  id: true,
-  invoiceNumber: true,
-  issueDate: true,
-  accrualDate: true,
-  netCents: true,
-  vatCents: true,
-  grossCents: true,
-  currency: true,
-  status: true,
-  vendor: { select: { id: true, name: true } },
-} as const;
-
 export const GET = route(async (request: Request) => {
   const principal = await requireAnyPermission(['invoices:read', 'invoices:create']);
   const parametros = new URL(request.url).searchParams;
   const f = filtros.parse(Object.fromEntries(parametros));
 
-  const rango: { gte?: Date; lte?: Date } = {};
-  if (f.desde !== undefined) rango.gte = aInstanteUtc(fechaFiltro(f.desde, 'desde'));
-  if (f.hasta !== undefined) rango.lte = aInstanteUtc(fechaFiltro(f.hasta, 'hasta'));
+  // La consulta vive en `@/lib/invoice-query`, compartida con la pantalla de
+  // facturas. Si cada una armara sus filtros, la lista y el total dejarían de
+  // decir lo mismo el día que cambie uno.
+  const filtro: FiltroFacturas = {
+    ...(f.status === undefined ? {} : { status: f.status }),
+    ...(f.vendorId === undefined ? {} : { vendorId: f.vendorId }),
+    ...(f.desde === undefined ? {} : { desde: fechaFiltro(f.desde, 'desde') }),
+    ...(f.hasta === undefined ? {} : { hasta: fechaFiltro(f.hasta, 'hasta') }),
+    ...(f.q === undefined ? {} : { numero: f.q }),
+  };
 
-  const limite = f.limit ?? LIMITE_POR_DEFECTO;
-
-  return db().withTenant(principal.tenantId, async (tx) => {
-    const encontradas = await tx.invoice.findMany({
-      where: {
-        ...(f.status === undefined ? {} : { status: f.status }),
-        ...(f.vendorId === undefined ? {} : { vendorId: f.vendorId }),
-        ...(Object.keys(rango).length === 0 ? {} : { accrualDate: rango }),
-        ...(f.q === undefined || f.q === ''
-          ? {}
-          : { invoiceNumber: { contains: f.q, mode: 'insensitive' as const } }),
-      },
-      select: CAMPOS_LISTA,
-      // Por fecha de devengo descendente, que es como se mira el gasto; el `id`
-      // desempata para que el orden sea total y el cursor no salte filas
-      // cuando varias facturas comparten día.
-      orderBy: [{ accrualDate: 'desc' as const }, { id: 'desc' as const }],
-      take: limite + 1,
-      ...(f.cursor === undefined ? {} : { cursor: { id: f.cursor }, skip: 1 }),
-    });
-
-    const hayMas = encontradas.length > limite;
-    const pagina = hayMas ? encontradas.slice(0, limite) : encontradas;
-    return NextResponse.json({
-      items: pagina.map((factura) => ({
-        ...factura,
-        issueDate: aIso(factura.issueDate),
-        accrualDate: aIso(factura.accrualDate),
-      })),
-      nextCursor: hayMas ? (pagina.at(-1)?.id ?? null) : null,
-    });
-  });
+  return db().withTenant(principal.tenantId, async (tx) =>
+    NextResponse.json(
+      await listarFacturas(tx, filtro, {
+        limite: f.limit ?? LIMITE_POR_DEFECTO,
+        ...(f.cursor === undefined ? {} : { cursor: f.cursor }),
+      }),
+    ),
+  );
 });
 
 /**
