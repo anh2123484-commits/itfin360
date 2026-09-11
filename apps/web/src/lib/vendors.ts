@@ -52,10 +52,16 @@ export const CAMPOS_PROVEEDOR = {
   criticality: true,
 } as const;
 
-/** Una cadena vacía es «no hay dato», no un dato vacío. */
-export function textoOpcional(valor: string | undefined): string | null | undefined {
-  if (valor === undefined) return undefined;
-  return valor === '' ? null : valor;
+/**
+ * Una cadena vacía es «no hay dato», no un dato vacío.
+ *
+ * Devuelve `null`, nunca `undefined`: con `exactOptionalPropertyTypes`, un
+ * `undefined` en el objeto de escritura no es lo mismo que la ausencia de la
+ * clave, y Prisma sólo acepta lo segundo. Quien edita decide si la clave está,
+ * comprobándolo antes; esta función sólo decide su valor.
+ */
+export function textoOpcional(valor: string | undefined): string | null {
+  return valor === undefined || valor === '' ? null : valor;
 }
 
 /**
