@@ -25,6 +25,7 @@ const MENSAJE: Readonly<Record<string, string>> = {
   sin_fichero: 'No has elegido ningún fichero.',
   demasiado_grande: 'El fichero es demasiado grande. Divídelo en varias tandas.',
   con_errores: 'El fichero tiene errores. No se ha importado nada.',
+  ilegible: 'No se ha podido leer el fichero.',
   rechazada: 'No se ha importado nada.',
 };
 
@@ -67,9 +68,10 @@ export default async function ImportarPage({
         <section className="flex flex-col gap-3 rounded border p-4">
           <h2 className="text-lg font-medium">Antes de empezar</h2>
           <p className="text-sm">
-            Descarga la plantilla, pega tus datos y vuelve aquí.{' '}
+            Descarga la plantilla, pega tus datos y vuelve aquí. Puedes subirla como CSV o guardarla
+            como Excel, da igual.{' '}
             <a className="underline" href="/api/plantilla-facturas">
-              Descargar plantilla CSV
+              Descargar plantilla
             </a>
           </p>
           <p className="text-muted-foreground text-sm">
@@ -84,8 +86,9 @@ export default async function ImportarPage({
           </p>
           <p className="text-muted-foreground text-sm">
             Las fechas van como <span className="font-mono text-xs">2026-03-31</span> o{' '}
-            <span className="font-mono text-xs">31/03/2026</span>. Los importes en euros, con coma o
-            con punto. Máximo {MAXIMO_FACTURAS} facturas por fichero.
+            <span className="font-mono text-xs">31/03/2026</span>. En Excel también valen las celdas
+            con formato de fecha. Los importes en euros, con coma o con punto. Máximo{' '}
+            {MAXIMO_FACTURAS} facturas por fichero.
           </p>
           <p className="text-muted-foreground text-sm">
             Los proveedores que no tengas dados de alta se crean solos, y al terminar se te dice
