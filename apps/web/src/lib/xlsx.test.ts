@@ -303,24 +303,20 @@ describe('leerExcel', () => {
     await expect(leerExcel(libro(filas.join('')))).rejects.toThrow(/más de 20\.000 filas/);
   });
 
-  it(
-    'un XML con etiquetas sin cerrar se termina de leer, no se queda dando vueltas',
-    async () => {
-      // Esto no es un fichero roto por accidente: es la forma barata de colgar un
-      // lector que busque cada cierre desde el principio. 800 KB de `<si>` sin
-      // cerrar caben en un `.xlsx` de unos pocos KB comprimido, y con una lectura
-      // cuadrática el servidor se queda ahí minutos sin responder a nadie más.
-      const maligno = `<sst>${'<si>'.repeat(200_000)}`;
-      const empezo = Date.now();
-      const tabla = await leerExcel(
-        libro('<row r="1"><c r="A1" t="s"><v>0</v></c></row>', {
-          'xl/sharedStrings.xml': maligno,
-        }),
-      );
-      // Sin texto compartido que resolver, la celda queda vacía y la fila se salta.
-      expect(tabla.filas).toEqual([]);
-      expect(Date.now() - empezo).toBeLessThan(5_000);
-    },
-    20_000,
-  );
+  it('un XML con etiquetas sin cerrar se termina de leer, no se queda dando vueltas', async () => {
+    // Esto no es un fichero roto por accidente: es la forma barata de colgar un
+    // lector que busque cada cierre desde el principio. 800 KB de `<si>` sin
+    // cerrar caben en un `.xlsx` de unos pocos KB comprimido, y con una lectura
+    // cuadrática el servidor se queda ahí minutos sin responder a nadie más.
+    const maligno = `<sst>${'<si>'.repeat(200_000)}`;
+    const empezo = Date.now();
+    const tabla = await leerExcel(
+      libro('<row r="1"><c r="A1" t="s"><v>0</v></c></row>', {
+        'xl/sharedStrings.xml': maligno,
+      }),
+    );
+    // Sin texto compartido que resolver, la celda queda vacía y la fila se salta.
+    expect(tabla.filas).toEqual([]);
+    expect(Date.now() - empezo).toBeLessThan(5_000);
+  }, 20_000);
 });

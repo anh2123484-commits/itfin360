@@ -45,7 +45,7 @@ interface Pieza {
 }
 
 /** Monta un ZIP a partir de entradas ya preparadas. */
-function construirZip(piezas: readonly Pieza[], entradasDeclaradas?: number): ArrayBuffer {
+function construirZip(piezas: readonly Pieza[]): ArrayBuffer {
   const codificador = new TextEncoder();
   const locales: Uint8Array[] = [];
   const directorio: Uint8Array[] = [];
@@ -86,10 +86,9 @@ function construirZip(piezas: readonly Pieza[], entradasDeclaradas?: number): Ar
   const tamanoDirectorio = directorio.reduce((total, e) => total + e.length, 0);
   const fin = new Uint8Array(22);
   const vistaFin = new DataView(fin.buffer);
-  const cuantas = entradasDeclaradas ?? directorio.length;
   vistaFin.setUint32(0, 0x06054b50, true);
-  vistaFin.setUint16(8, cuantas, true);
-  vistaFin.setUint16(10, cuantas, true);
+  vistaFin.setUint16(8, directorio.length, true);
+  vistaFin.setUint16(10, directorio.length, true);
   vistaFin.setUint32(12, tamanoDirectorio, true);
   vistaFin.setUint32(16, desplazamiento, true);
 
@@ -225,46 +224,38 @@ describe('topes contra ficheros preparados para reventar el servidor', () => {
     expect(() => listarZip(zip)).toThrow(/demasiados para un \.xlsx/);
   });
 
-  it(
-    'el presupuesto de bytes descomprimidos es de todo el ZIP, no de cada entrada',
-    async () => {
-      const bloque = await bloqueDeVeinteMb();
-      const pieza = (nombre: string): Pieza => ({
-        nombre,
-        datos: bloque.datos,
-        metodo: 8,
-        crc: bloque.crc,
-        declarado: VEINTE_MB,
-      });
-      const zip = construirZip([pieza('a.bin'), pieza('b.bin')]);
+  it('el presupuesto de bytes descomprimidos es de todo el ZIP, no de cada entrada', async () => {
+    const bloque = await bloqueDeVeinteMb();
+    const pieza = (nombre: string): Pieza => ({
+      nombre,
+      datos: bloque.datos,
+      metodo: 8,
+      crc: bloque.crc,
+      declarado: VEINTE_MB,
+    });
+    const zip = construirZip([pieza('a.bin'), pieza('b.bin')]);
 
-      // 20 MB pasan. Los siguientes 20 ya no caben en lo que queda, aunque por
-      // separado cada entrada esté dentro del tope.
-      await expect(leerZip(zip, ['a.bin', 'b.bin'])).rejects.toThrow(/demasiados datos/);
-      expect((await leerZip(zip, ['a.bin'])).get('a.bin')?.byteLength).toBe(VEINTE_MB);
-    },
-    30_000,
-  );
+    // 20 MB pasan. Los siguientes 20 ya no caben en lo que queda, aunque por
+    // separado cada entrada esté dentro del tope.
+    await expect(leerZip(zip, ['a.bin', 'b.bin'])).rejects.toThrow(/demasiados datos/);
+    expect((await leerZip(zip, ['a.bin'])).get('a.bin')?.byteLength).toBe(VEINTE_MB);
+  }, 30_000);
 
-  it(
-    'el tamaño que el ZIP declara no sirve para colarse',
-    async () => {
-      const bloque = await bloqueDeVeinteMb();
-      // Declarar cero es lo que haría quien fabrica el fichero para saltarse una
-      // comprobación previa. Lo que corta es medir mientras se descomprime.
-      const pieza = (nombre: string): Pieza => ({
-        nombre,
-        datos: bloque.datos,
-        metodo: 8,
-        crc: bloque.crc,
-        declarado: 0,
-      });
-      const zip = construirZip([pieza('a.bin'), pieza('b.bin')]);
+  it('el tamaño que el ZIP declara no sirve para colarse', async () => {
+    const bloque = await bloqueDeVeinteMb();
+    // Declarar cero es lo que haría quien fabrica el fichero para saltarse una
+    // comprobación previa. Lo que corta es medir mientras se descomprime.
+    const pieza = (nombre: string): Pieza => ({
+      nombre,
+      datos: bloque.datos,
+      metodo: 8,
+      crc: bloque.crc,
+      declarado: 0,
+    });
+    const zip = construirZip([pieza('a.bin'), pieza('b.bin')]);
 
-      await expect(leerZip(zip, ['a.bin', 'b.bin'])).rejects.toThrow(/demasiados datos/);
-    },
-    30_000,
-  );
+    await expect(leerZip(zip, ['a.bin', 'b.bin'])).rejects.toThrow(/demasiados datos/);
+  }, 30_000);
 
   it('un método de compresión que no es el de Excel se rechaza', async () => {
     const datos = new TextEncoder().encode('hola');
