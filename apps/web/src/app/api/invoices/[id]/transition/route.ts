@@ -1,21 +1,19 @@
-import { requestTransition } from '@itfin360/db';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { HttpError, parseJson, route } from '@/lib/http';
+import { aplicarTransicion } from '@/lib/invoice-transition';
 import { requirePermission } from '@/lib/tenant-context';
 
 /**
  * Mueve una factura por el flujo de aprobación (F2-02).
  *
- * Aquí no hay ninguna regla de negocio: la máquina de estados vive en
- * `@itfin360/db` y es pura. Esta ruta hace lo que la máquina no puede hacer,
- * que es exactamente lo que la aceptación de F2-02 exige que ocurra en el
- * servidor: leer la factura dentro del contexto del tenant, preguntar, y
- * escribir el cambio **y su apunte de auditoría en la misma transacción**. Si
- * la auditoría fallara, la transición tampoco ocurre; una factura que cambia de
- * estado sin dejar rastro es peor que una que no cambia.
+ * Aquí no hay ninguna regla de negocio. La máquina de estados vive en
+ * `@itfin360/db` y es pura; leer la factura y escribir el cambio con su apunte
+ * de auditoría en la misma transacción vive en `@/lib/invoice-transition`, que
+ * es lo que usan también los botones de la pantalla de detalle. Esta ruta sólo
+ * traduce: cuerpo a parámetros, resultado a código HTTP.
  *
  * El rechazo no pasa por `HttpError` a propósito: `errorResponse` sólo devuelve
  * el código, y aquí el mensaje de la máquina de estados es la mitad del valor
@@ -36,54 +34,20 @@ export const POST = route(
     const principal = await requirePermission('invoices:create');
     const { action, duplicateOfId } = await parseJson(request, cuerpo);
 
-    return db().withTenant(principal.tenantId, async (tx) => {
-      // RLS ya garantiza que sólo se ve la factura del tenant activo: si es de
-      // otro tenant, esto devuelve null y la respuesta es 404, no 403. Un 403
-      // confirmaría que la factura existe en algún sitio.
-      const invoice = await tx.invoice.findUnique({
-        where: { id },
-        select: { id: true, status: true, createdById: true },
-      });
-      if (!invoice) throw new HttpError(404, 'invoice_not_found');
+    const resultado = await db().withTenant(principal.tenantId, (tx) =>
+      aplicarTransicion(tx, principal, id, action, duplicateOfId),
+    );
 
-      const outcome = requestTransition({
-        invoice: {
-          id: invoice.id,
-          status: invoice.status,
-          createdById: invoice.createdById ?? undefined,
-        },
-        action,
-        actorId: principal.userId,
-        role: principal.role,
-        duplicateOfId,
-      });
+    if (!resultado.ok) {
+      // El 404 sí es un error de recurso y va por el camino de siempre, para
+      // que el cuerpo tenga la misma forma que el resto de 404 de la API.
+      if (resultado.httpStatus === 404) throw new HttpError(404, 'invoice_not_found');
+      return NextResponse.json(
+        { error: resultado.motivo, message: resultado.mensaje },
+        { status: resultado.httpStatus },
+      );
+    }
 
-      if (!outcome.ok) {
-        return NextResponse.json(
-          { error: outcome.refusal.kind.toLowerCase(), message: outcome.refusal.message },
-          { status: outcome.refusal.httpStatus },
-        );
-      }
-
-      const after =
-        action === 'MARK_DUPLICATE' && duplicateOfId !== undefined
-          ? { status: outcome.to, duplicateOfId }
-          : { status: outcome.to };
-
-      await tx.invoice.update({ where: { id }, data: after });
-      await tx.auditLog.create({
-        data: {
-          tenantId: principal.tenantId,
-          actorId: principal.userId,
-          action: outcome.audit.action,
-          entity: 'invoice',
-          entityId: id,
-          before: { status: outcome.from },
-          after,
-        },
-      });
-
-      return NextResponse.json({ id, from: outcome.from, to: outcome.to });
-    });
+    return NextResponse.json({ id, from: resultado.from, to: resultado.to });
   },
 );

@@ -227,7 +227,11 @@ export default async function FacturasPage({
               <tbody>
                 {pagina.items.map((factura) => (
                   <tr key={factura.id} className="border-b">
-                    <td className="p-2 font-mono text-xs">{factura.invoiceNumber}</td>
+                    <td className="p-2 font-mono text-xs">
+                      <Link className="underline" href={`/facturas/${factura.id}`}>
+                        {factura.invoiceNumber}
+                      </Link>
+                    </td>
                     <td className="p-2">{factura.vendor.name}</td>
                     <td className="p-2">{formatearFecha(factura.accrualDate)}</td>
                     <td className="p-2 text-right tabular-nums">
