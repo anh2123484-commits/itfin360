@@ -124,9 +124,21 @@ Tres decisiones se apartan de la ficha original. Se dejan escritas porque el có
 
 *Pendiente:* mapeo de columnas guardable, job en segundo plano con informe descargable, tandas de más de 100 facturas (hoy el tope viene del tiempo que puede durar una transacción) y libros de Excel con varias hojas (se lee la primera).
 
-**F2-05 · Explorador de costes (UI)** · L · Dep: F2-02
-Tabla con filtros (periodo, proveedor, servicio, tipo, estado), agrupaciones, totales y drill-down hasta el PDF.
-*Aceptación:* 100.000 líneas paginadas por cursor sin degradar; los totales cuadran con la suma de la base.
+**F2-05 · Explorador de costes y estado del gasto (UI)** · L · Dep: F2-02
+
+*Primera entrega, hecha:* el explorador de facturas con filtros (número, estado, rango de devengo), paginado por cursor y con totales por divisa.
+
+*Segunda entrega, hecha:* la pantalla de gasto del departamento por mes. Cifra del periodo con la variación respecto al mes anterior, desglose por categoría presupuestaria con su peso y su comparación, gasto por proveedor, y aparte lo que no cuenta: lo capitalizado y el material para reventa.
+
+Decisiones que fija esta pantalla, porque hasta ahora no estaban escritas en ningún sitio:
+
+1. **Cuentan las facturas aprobadas y contabilizadas, y sólo ésas.** Un borrador es algo que alguien está tecleando y una factura en revisión todavía puede rechazarse: contarlas daría una cifra que se mueve sola mientras nadie toca nada.
+2. **El periodo lo decide la fecha de devengo**, no la de emisión ni la de pago. El servicio de enero es gasto de enero aunque la factura llegue en febrero y se pague en marzo. Es lo que permite que el gasto de un mes deje de moverse cuando el mes se cierra.
+3. **Lo que no cuenta se enseña igual, con su motivo.** Esconder lo capitalizado y la reventa daría una cifra más limpia y dejaría a quien la mira sin poder cuadrarla contra la suma de las facturas del mes.
+
+*Aceptación de esta entrega:* el desglose por categoría suma exactamente el total; la suma de la tabla de proveedores también; las facturas en borrador no aparecen; un mes con facturas en dos divisas lo dice en vez de sumarlas en silencio; y las compras que por su concepto deberían ser inmovilizado salen señaladas.
+
+*Pendiente:* agrupaciones por servicio y centro de coste (hacen falta esos modelos), drill-down hasta el PDF (hace falta el almacenamiento del fichero), tipo de cambio para poder sumar divisas distintas, presupuesto anual contra el que comparar el gasto, y la prueba de carga de las 100.000 líneas.
 
 ---
 
