@@ -35,8 +35,16 @@ const FIN_DIRECTORIO_BYTES = 22;
 /** Tope de entradas. Un `.xlsx` normal tiene decenas, no miles. */
 const MAXIMO_ENTRADAS = 512;
 
-/** Tope de bytes descomprimidos, para no reventar la memoria con un zip bomba. */
-const MAXIMO_DESCOMPRIMIDO = 64 * 1024 * 1024;
+/**
+ * Tope de bytes descomprimidos en todo el ZIP, no por entrada.
+ *
+ * Por entrada no sirve de nada: con 512 entradas permitidas, un tope de 64 MB
+ * cada una da un presupuesto de 32 GB por petición. El que cuenta es el total.
+ */
+const MAXIMO_DESCOMPRIMIDO = 32 * 1024 * 1024;
+
+const MENSAJE_DEMASIADO_GRANDE =
+  'El fichero comprimido expande a demasiados datos. Puede ser un fichero preparado para agotar la memoria del servidor.';
 
 /**
  * Posición del bloque final del directorio.
@@ -54,39 +62,80 @@ function posicionFinDirectorio(vista: DataView): number {
   throw new ZipInvalido('No parece un fichero ZIP: no se encuentra su índice.');
 }
 
+/**
+ * Descomprime una entrada sin pasar de `tope` bytes.
+ *
+ * Se lee el flujo por trozos y se corta en cuanto se pasa, en vez de volcar todo
+ * a memoria y medirlo después. La diferencia importa: 1 MB de deflate expande a
+ * más de 1 GB con contenido repetitivo (ratio medido 1028:1), y para cuando se
+ * mide ya se ha reservado la memoria.
+ *
+ * El tamaño que declara el ZIP en su índice **no se usa como límite**, sólo como
+ * pista para descartar entradas antes de empezar. Lo escribe quien fabrica el
+ * fichero: ponerlo a cero haría pasar cualquier comprobación previa.
+ */
 async function descomprimir(
   datos: Uint8Array,
   metodo: number,
-  tamano: number,
+  declarado: number,
+  tope: number,
 ): Promise<Uint8Array> {
-  if (metodo === 0) return datos;
+  if (metodo === 0) {
+    if (datos.byteLength > tope) throw new ZipInvalido(MENSAJE_DEMASIADO_GRANDE);
+    return datos;
+  }
   if (metodo !== 8) {
     throw new ZipInvalido(`El ZIP usa un método de compresión que no se soporta (${metodo}).`);
   }
-  if (tamano > MAXIMO_DESCOMPRIMIDO) {
-    throw new ZipInvalido('El fichero descomprimido es demasiado grande.');
-  }
+  // Si ya lo declara demasiado grande, no hace falta ni empezar.
+  if (declarado > tope) throw new ZipInvalido(MENSAJE_DEMASIADO_GRANDE);
 
   const entrada = new Blob([datos as BlobPart]).stream();
   // `deflate-raw` y no `deflate`: dentro de un ZIP los datos van sin la
   // cabecera zlib. Con `deflate` falla con un error de formato que no dice nada.
-  const salida = entrada.pipeThrough(new DecompressionStream('deflate-raw'));
-  const bytes = new Uint8Array(await new Response(salida).arrayBuffer());
+  const lector = entrada.pipeThrough(new DecompressionStream('deflate-raw')).getReader();
 
-  if (bytes.byteLength > MAXIMO_DESCOMPRIMIDO) {
-    throw new ZipInvalido('El fichero descomprimido es demasiado grande.');
+  const trozos: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await lector.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > tope) throw new ZipInvalido(MENSAJE_DEMASIADO_GRANDE);
+      trozos.push(value);
+    }
+  } finally {
+    // Cancelar suelta el descompresor aunque hayamos cortado a mitad.
+    await lector.cancel().catch(() => undefined);
   }
-  return bytes;
+
+  const salida = new Uint8Array(total);
+  let cursor = 0;
+  for (const trozo of trozos) {
+    salida.set(trozo, cursor);
+    cursor += trozo.byteLength;
+  }
+  return salida;
+}
+
+/** Una entrada del índice del ZIP, sin descomprimir todavía. */
+interface EntradaIndice {
+  readonly nombre: string;
+  readonly metodo: number;
+  readonly inicioDatos: number;
+  readonly comprimido: number;
+  readonly descomprimido: number;
 }
 
 /**
- * Lee el ZIP entero y devuelve sus ficheros por nombre.
+ * Recorre el índice del ZIP sin descomprimir nada.
  *
  * Se recorre el directorio central, no las cabeceras locales encadenadas: el
  * directorio es el índice de verdad del formato, y las cabeceras locales pueden
  * mentir sobre el tamaño cuando el ZIP se escribió en streaming.
  */
-export async function leerZip(buffer: ArrayBuffer): Promise<ReadonlyMap<string, Uint8Array>> {
+function indiceDelZip(buffer: ArrayBuffer): readonly EntradaIndice[] {
   if (buffer.byteLength < FIN_DIRECTORIO_BYTES) {
     throw new ZipInvalido('El fichero está vacío o cortado.');
   }
@@ -95,14 +144,13 @@ export async function leerZip(buffer: ArrayBuffer): Promise<ReadonlyMap<string, 
   const fin = posicionFinDirectorio(vista);
 
   const totalEntradas = vista.getUint16(fin + 10, true);
-  const inicioDirectorio = vista.getUint32(fin + 16, true);
   if (totalEntradas > MAXIMO_ENTRADAS) {
     throw new ZipInvalido(`El ZIP trae ${totalEntradas} ficheros, demasiados para un .xlsx.`);
   }
 
   const decodificador = new TextDecoder('utf-8');
-  const ficheros = new Map<string, Uint8Array>();
-  let cursor = inicioDirectorio;
+  const entradas: EntradaIndice[] = [];
+  let cursor = vista.getUint32(fin + 16, true);
 
   for (let i = 0; i < totalEntradas; i += 1) {
     if (
@@ -137,11 +185,47 @@ export async function leerZip(buffer: ArrayBuffer): Promise<ReadonlyMap<string, 
 
     // Las carpetas entran en el directorio como entradas vacías. No son ficheros.
     if (!nombre.endsWith('/')) {
-      const crudos = bytes.subarray(inicioDatos, inicioDatos + comprimido);
-      ficheros.set(nombre, await descomprimir(crudos, metodo, descomprimido));
+      entradas.push({ nombre, metodo, inicioDatos, comprimido, descomprimido });
     }
-
     cursor += 46 + largoNombre + largoExtra + largoComentario;
+  }
+
+  return entradas;
+}
+
+/**
+ * Nombres de los ficheros que hay dentro, sin descomprimir ni uno.
+ *
+ * Sirve para decidir qué hace falta antes de gastar nada. Leer el índice cuesta
+ * lo que mide el índice; descomprimir lo que no se va a usar es trabajo regalado
+ * a quien suba el fichero.
+ */
+export function listarZip(buffer: ArrayBuffer): readonly string[] {
+  return indiceDelZip(buffer).map((entrada) => entrada.nombre);
+}
+
+/**
+ * Descomprime las entradas pedidas y las devuelve por nombre.
+ *
+ * Todas comparten un mismo presupuesto de bytes: lo que gasta una se lo quita a
+ * las siguientes. Con un tope por entrada no serviría de nada, porque basta
+ * repetir la misma entrada las veces que permita el índice.
+ */
+export async function leerZip(
+  buffer: ArrayBuffer,
+  cuales: readonly string[],
+): Promise<ReadonlyMap<string, Uint8Array>> {
+  const bytes = new Uint8Array(buffer);
+  const pedidas = new Set(cuales);
+  const ficheros = new Map<string, Uint8Array>();
+  let presupuesto = MAXIMO_DESCOMPRIMIDO;
+
+  for (const entrada of indiceDelZip(buffer)) {
+    if (!pedidas.has(entrada.nombre)) continue;
+    const crudos = bytes.subarray(entrada.inicioDatos, entrada.inicioDatos + entrada.comprimido);
+    const salida = await descomprimir(crudos, entrada.metodo, entrada.descomprimido, presupuesto);
+    presupuesto -= salida.byteLength;
+    ficheros.set(entrada.nombre, salida);
   }
 
   return ficheros;

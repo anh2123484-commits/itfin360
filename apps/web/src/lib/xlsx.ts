@@ -1,5 +1,5 @@
 import type { FilaCsv, TablaCsv } from '@/lib/csv';
-import { leerZip, textoDe, ZipInvalido } from '@/lib/zip';
+import { leerZip, listarZip, textoDe, ZipInvalido } from '@/lib/zip';
 
 /**
  * Lectura de hojas de Excel (`.xlsx`), sin dependencias (F2-04, segunda entrega).
@@ -12,7 +12,19 @@ import { leerZip, textoDe, ZipInvalido } from '@/lib/zip';
  * todo el camino es el mismo: `importarFacturas` no sabe ni tiene por qué saber
  * de dónde salió la tabla.
  *
- * ## Lo que hace y lo que no
+ * ## El XML se recorre con un escáner, no con expresiones regulares
+ *
+ * La primera versión de este fichero usaba `matchAll` con `[\s\S]*?` para sacar
+ * cada `<si>`, cada `<row>` y cada `<c>`. Con una etiqueta sin cerrar, ese
+ * patrón reintenta desde cada posición y recorre el resto de la cadena en cada
+ * intento: cuadrático. Medido, 160 KB de `<si>` sin cerrar tardaban dos segundos,
+ * y el tiempo se cuadruplica al doblar el tamaño, así que un fichero de 60 MB
+ * (57 KB comprimidos) dejaba el proceso girando durante días.
+ *
+ * `bloques` hace lo mismo con `indexOf`, que nunca retrocede: el coste es lineal
+ * y una etiqueta sin cerrar termina la lectura en vez de dispararla.
+ *
+ * ## Lo demás que hace y lo que no
  *
  * Lee **la primera hoja** del libro. Un fichero con varias hojas de datos es un
  * caso que hay que resolver preguntando cuál, y eso es otra pantalla.
@@ -37,11 +49,88 @@ export class ExcelInvalido extends Error {
 /** Los cuatro primeros bytes de un ZIP, que es lo que es un `.xlsx`. */
 const FIRMA_ZIP = [0x50, 0x4b, 0x03, 0x04];
 
+/** Las únicas piezas del libro que hacen falta. El resto ni se descomprime. */
+const PIEZAS = ['xl/sharedStrings.xml', 'xl/styles.xml'] as const;
+
+/** Tope de filas de una hoja. Por encima, el fichero se parte en varios. */
+const MAXIMO_FILAS = 20_000;
+
 /** Si el fichero empieza como un ZIP. Sirve para elegir lector sin fiarse del nombre. */
 export function pareceExcel(buffer: ArrayBuffer): boolean {
   if (buffer.byteLength < FIRMA_ZIP.length) return false;
   const bytes = new Uint8Array(buffer);
   return FIRMA_ZIP.every((byte, indice) => bytes[indice] === byte);
+}
+
+/** Un elemento XML encontrado por el escáner. */
+interface Bloque {
+  /** Lo que va entre el nombre de la etiqueta y el `>`, sin tocar. */
+  readonly atributos: string;
+  /** Lo que va entre la apertura y el cierre. Vacío si la etiqueta se cierra sola. */
+  readonly contenido: string;
+}
+
+/** Caracteres que pueden seguir al nombre de una etiqueta. */
+const TRAS_NOMBRE = new Set([' ', '\t', '\r', '\n', '/', '>']);
+
+/**
+ * Recorre los elementos `<etiqueta>` de un XML, de principio a fin y una sola vez.
+ *
+ * Usa `indexOf`, que avanza siempre, en lugar de una expresión regular perezosa,
+ * que reintenta. Ver el comentario de cabecera: ésa es la diferencia entre lineal
+ * y cuadrático, y entre leer un fichero y quedarse colgado con él.
+ *
+ * Una etiqueta que se abre y no se cierra termina el recorrido. Es lo correcto:
+ * un XML así está roto, y lo que se ha podido leer antes sigue siendo válido.
+ */
+function* bloques(xml: string, etiqueta: string): Generator<Bloque> {
+  const apertura = `<${etiqueta}`;
+  const cierre = `</${etiqueta}>`;
+  let desde = 0;
+
+  for (;;) {
+    const inicio = xml.indexOf(apertura, desde);
+    if (inicio === -1) return;
+
+    // `<si` no debe encontrar `<signature`: detrás del nombre tiene que venir un
+    // espacio, una barra o el cierre del corchete.
+    const siguiente = xml.charAt(inicio + apertura.length);
+    if (!TRAS_NOMBRE.has(siguiente)) {
+      desde = inicio + apertura.length;
+      continue;
+    }
+
+    const finApertura = xml.indexOf('>', inicio + apertura.length);
+    if (finApertura === -1) return;
+    const atributos = xml.slice(inicio + apertura.length, finApertura);
+
+    if (atributos.endsWith('/')) {
+      yield { atributos: atributos.slice(0, -1), contenido: '' };
+      desde = finApertura + 1;
+      continue;
+    }
+
+    const finContenido = xml.indexOf(cierre, finApertura + 1);
+    if (finContenido === -1) return;
+    yield { atributos, contenido: xml.slice(finApertura + 1, finContenido) };
+    desde = finContenido + cierre.length;
+  }
+}
+
+/** El primer elemento con esa etiqueta, o `null`. */
+function primerBloque(xml: string, etiqueta: string): Bloque | null {
+  for (const bloque of bloques(xml, etiqueta)) return bloque;
+  return null;
+}
+
+/** Valor de un atributo. Se busca sobre la cadena corta de atributos, no sobre el XML. */
+function atributo(atributos: string, nombre: string): string | null {
+  const marca = `${nombre}="`;
+  const inicio = atributos.indexOf(marca);
+  if (inicio === -1) return null;
+  const fin = atributos.indexOf('"', inicio + marca.length);
+  if (fin === -1) return null;
+  return atributos.slice(inicio + marca.length, fin);
 }
 
 /** Quita las entidades XML de un texto. */
@@ -61,6 +150,13 @@ function sinEntidades(texto: string): string {
   );
 }
 
+/** Todo el texto de los `<t>` que haya dentro, concatenado. */
+function textoDeT(xml: string): string {
+  let junto = '';
+  for (const t of bloques(xml, 't')) junto += t.contenido;
+  return sinEntidades(junto);
+}
+
 /**
  * Textos compartidos del libro.
  *
@@ -72,13 +168,7 @@ function sinEntidades(texto: string): string {
 function textosCompartidos(xml: string | null): readonly string[] {
   if (xml === null) return [];
   const textos: string[] = [];
-  for (const item of xml.matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)) {
-    const contenido = item[1] ?? '';
-    const trozos = [...contenido.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(
-      (trozo) => trozo[1] ?? '',
-    );
-    textos.push(sinEntidades(trozos.join('')));
-  }
+  for (const si of bloques(xml, 'si')) textos.push(textoDeT(si.contenido));
   return textos;
 }
 
@@ -97,18 +187,20 @@ function estilosDeFecha(xml: string | null): ReadonlySet<number> {
 
   // Formatos que el libro define por su cuenta, del 164 en adelante.
   const personalizados = new Set<number>();
-  for (const formato of xml.matchAll(/<numFmt\b[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g)) {
-    const id = Number(formato[1]);
-    const codigo = sinEntidades(formato[2] ?? '');
+  for (const formato of bloques(xml, 'numFmt')) {
+    const id = Number(atributo(formato.atributos, 'numFmtId') ?? '');
+    const codigo = sinEntidades(atributo(formato.atributos, 'formatCode') ?? '');
     // Se mira fuera de los literales entre comillas: `"año "0` no es una fecha.
     const fuera = codigo.replaceAll(/"[^"]*"/g, '');
-    if (/[ymdhs]/i.test(fuera)) personalizados.add(id);
+    if (Number.isFinite(id) && /[ymdhs]/i.test(fuera)) personalizados.add(id);
   }
 
-  const bloque = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/.exec(xml)?.[1] ?? '';
+  const bloque = primerBloque(xml, 'cellXfs');
+  if (bloque === null) return fechas;
+
   let indice = 0;
-  for (const xf of bloque.matchAll(/<xf\b[^>]*>/g)) {
-    const id = Number(/numFmtId="(\d+)"/.exec(xf[0] ?? '')?.[1] ?? '0');
+  for (const xf of bloques(bloque.contenido, 'xf')) {
+    const id = Number(atributo(xf.atributos, 'numFmtId') ?? '0');
     if (FORMATOS_FECHA_INTEGRADOS.has(id) || personalizados.has(id)) fechas.add(indice);
     indice += 1;
   }
@@ -117,9 +209,12 @@ function estilosDeFecha(xml: string | null): ReadonlySet<number> {
 
 /** Número de columna a partir de la referencia de la celda: A → 1, AB → 28. */
 function columnaDe(referencia: string): number {
-  const letras = /^([A-Z]+)/.exec(referencia)?.[1] ?? '';
   let columna = 0;
-  for (const letra of letras) columna = columna * 26 + (letra.charCodeAt(0) - 64);
+  for (const letra of referencia) {
+    const codigo = letra.charCodeAt(0);
+    if (codigo < 65 || codigo > 90) break;
+    columna = columna * 26 + (codigo - 64);
+  }
   return columna;
 }
 
@@ -154,33 +249,29 @@ function numeroATexto(valor: number): string {
 
 /** Valor de una celda, ya como el texto que vería quien mira la hoja. */
 function valorDeCelda(
-  celda: string,
+  celda: Bloque,
   compartidos: readonly string[],
   fechas: ReadonlySet<number>,
 ): string {
-  const tipo = /\bt="([^"]*)"/.exec(celda)?.[1] ?? 'n';
+  const tipo = atributo(celda.atributos, 't') ?? 'n';
 
-  if (tipo === 'inlineStr') {
-    const trozos = [...celda.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map((trozo) => trozo[1] ?? '');
-    return sinEntidades(trozos.join('')).trim();
-  }
+  if (tipo === 'inlineStr') return textoDeT(celda.contenido).trim();
 
-  const crudo = /<v\b[^>]*>([\s\S]*?)<\/v>/.exec(celda)?.[1];
-  if (crudo === undefined) return '';
-  const texto = sinEntidades(crudo).trim();
+  const v = primerBloque(celda.contenido, 'v');
+  if (v === null) return '';
+  const texto = sinEntidades(v.contenido).trim();
 
   if (tipo === 's') {
     const indice = Number(texto);
     return compartidos[indice] ?? '';
   }
-  if (tipo === 'str') return texto;
+  if (tipo === 'str' || tipo === 'e') return texto;
   if (tipo === 'b') return texto === '1' ? 'VERDADERO' : 'FALSO';
-  if (tipo === 'e') return texto;
 
   const numero = Number(texto);
   if (!Number.isFinite(numero)) return texto;
 
-  const estilo = Number(/\bs="(\d+)"/.exec(celda)?.[1] ?? '-1');
+  const estilo = Number(atributo(celda.atributos, 's') ?? '-1');
   if (fechas.has(estilo)) {
     const fecha = fechaDeSerie(numero);
     if (fecha !== null) return fecha;
@@ -189,11 +280,9 @@ function valorDeCelda(
 }
 
 /** Ruta de la primera hoja dentro del ZIP. */
-function rutaPrimeraHoja(ficheros: ReadonlyMap<string, Uint8Array>): string {
-  if (ficheros.has('xl/worksheets/sheet1.xml')) return 'xl/worksheets/sheet1.xml';
-  const hojas = [...ficheros.keys()]
-    .filter((ruta) => /^xl\/worksheets\/[^/]+\.xml$/.test(ruta))
-    .sort();
+function rutaPrimeraHoja(nombres: readonly string[]): string {
+  if (nombres.includes('xl/worksheets/sheet1.xml')) return 'xl/worksheets/sheet1.xml';
+  const hojas = nombres.filter((ruta) => /^xl\/worksheets\/[^/]+\.xml$/.test(ruta)).sort();
   const primera = hojas[0];
   if (primera === undefined) {
     throw new ExcelInvalido('El fichero no tiene ninguna hoja de cálculo dentro.');
@@ -208,11 +297,18 @@ function rutaPrimeraHoja(ficheros: ReadonlyMap<string, Uint8Array>): string {
  * Los números de fila son los de Excel, tomados del atributo `r` de cada fila y
  * no de la posición: así, si la hoja tiene filas ocultas o borradas, el número
  * que se enseña al señalar un error sigue siendo el que la persona ve.
+ *
+ * Se abre el ZIP dos veces a propósito. La primera sólo mira el índice, sin
+ * descomprimir nada, para saber cómo se llama la hoja; la segunda descomprime
+ * únicamente esa hoja y las tres piezas que hacen falta. Abrir el índice es
+ * barato; descomprimir lo que no se va a usar, no.
  */
 export async function leerExcel(buffer: ArrayBuffer): Promise<TablaCsv> {
+  let rutaHoja: string;
   let ficheros: ReadonlyMap<string, Uint8Array>;
   try {
-    ficheros = await leerZip(buffer);
+    rutaHoja = rutaPrimeraHoja(listarZip(buffer));
+    ficheros = await leerZip(buffer, [...PIEZAS, rutaHoja]);
   } catch (error) {
     if (error instanceof ZipInvalido) {
       throw new ExcelInvalido(`No se ha podido abrir el Excel: ${error.message}`);
@@ -222,21 +318,25 @@ export async function leerExcel(buffer: ArrayBuffer): Promise<TablaCsv> {
 
   const compartidos = textosCompartidos(textoDe(ficheros, 'xl/sharedStrings.xml'));
   const fechas = estilosDeFecha(textoDe(ficheros, 'xl/styles.xml'));
-  const hoja = textoDe(ficheros, rutaPrimeraHoja(ficheros));
+  const hoja = textoDe(ficheros, rutaHoja);
   if (hoja === null) throw new ExcelInvalido('La hoja del libro está vacía.');
 
   const filas: FilaCsv[] = [];
-  for (const fila of hoja.matchAll(/<row\b([^>]*)>([\s\S]*?)<\/row>/g)) {
-    const numero = Number(/\br="(\d+)"/.exec(fila[1] ?? '')?.[1] ?? '0');
+  for (const fila of bloques(hoja, 'row')) {
+    if (filas.length >= MAXIMO_FILAS) {
+      throw new ExcelInvalido(
+        `La hoja tiene más de ${MAXIMO_FILAS.toLocaleString('es-ES')} filas. Pártela en varios ficheros.`,
+      );
+    }
+    const numero = Number(atributo(fila.atributos, 'r') ?? '0');
     const campos: string[] = [];
 
-    for (const celda of (fila[2] ?? '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
-      const referencia = /\br="([A-Z]+\d+)"/.exec(celda[1] ?? '')?.[1] ?? '';
-      const columna = columnaDe(referencia);
+    for (const celda of bloques(fila.contenido, 'c')) {
+      const columna = columnaDe(atributo(celda.atributos, 'r') ?? '');
       // Excel se salta las celdas vacías. Sin rellenar el hueco, todo lo que
       // venga detrás se corre una columna y los importes acaban en la que no es.
       if (columna > 0) while (campos.length < columna - 1) campos.push('');
-      campos.push(valorDeCelda(celda[0] ?? '', compartidos, fechas));
+      campos.push(valorDeCelda(celda, compartidos, fechas));
     }
 
     if (campos.some((campo) => campo !== '')) {

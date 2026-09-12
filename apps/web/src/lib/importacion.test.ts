@@ -259,6 +259,52 @@ describe('importarFacturas · lo que rechaza', () => {
     expect(resultado.errores).toHaveLength(1);
   });
 
+  it('una descripción más larga de lo que acepta el alta manual se rechaza', () => {
+    // La importación es la otra puerta de entrada de texto. Sin este tope, un
+    // fichero puede dejar en la base algo que la aplicación no habría aceptado
+    // tecleado, y que después hay que pintar en pantallas y en informes.
+    const larga = 'x'.repeat(501);
+    const resultado = importar(
+      `Amazon;FAC-1;2026-03-31;;;${larga};Consumibles y material fungible;1;100,00;;;`,
+    );
+    expect(resultado.facturas).toEqual([]);
+    expect(resultado.errores[0]).toMatchObject({ fila: 2, columna: 'descripcion' });
+  });
+
+  it('justo en el límite todavía entra', () => {
+    const justa = 'x'.repeat(500);
+    const resultado = importar(
+      `Amazon;FAC-1;2026-03-31;;;${justa};Consumibles y material fungible;1;100,00;;;`,
+    );
+    expect(resultado.errores).toEqual([]);
+  });
+
+  it('un número de factura desmesurado se rechaza', () => {
+    const resultado = importar(
+      `Amazon;${'9'.repeat(101)};2026-03-31;;;Algo;Consumibles y material fungible;1;100,00;;;`,
+    );
+    expect(resultado.errores[0]).toMatchObject({ fila: 2, columna: 'numero_factura' });
+  });
+
+  it('un proveedor desmesurado se rechaza', () => {
+    const resultado = importar(
+      `${'A'.repeat(201)};FAC-1;2026-03-31;;;Algo;Consumibles y material fungible;1;100,00;;;`,
+    );
+    expect(resultado.errores[0]).toMatchObject({ fila: 2, columna: 'proveedor' });
+  });
+
+  it('una factura con más líneas de las que caben se rechaza entera', () => {
+    // Pasa de verdad cuando el fichero trae el mismo número de factura en filas
+    // que son de facturas distintas: se agruparían todas en una.
+    const filas = Array.from(
+      { length: 501 },
+      (_, i) => `Dell;F-1;2026-01-15;;;Linea ${i};Servidores;1;10,00;;;`,
+    );
+    const resultado = importar(...filas);
+    expect(resultado.facturas).toEqual([]);
+    expect(resultado.errores[0]?.mensaje).toContain('501 líneas');
+  });
+
   it('acepta el CSV con comas si el fichero es coherente', () => {
     const conComas = [
       CABECERA.replaceAll(';', ','),

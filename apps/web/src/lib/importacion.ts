@@ -65,6 +65,26 @@ export const COLUMNAS_OBLIGATORIAS: readonly string[] = [
   COLUMNAS.precio,
 ];
 
+/**
+ * Longitudes máximas, las mismas que valida el alta manual.
+ *
+ * No están aquí por gusto de poner topes: sin ellos, la importación es la única
+ * puerta por la que entra texto sin medir. El alta manual pasa por un esquema
+ * que corta en 500, 100 y 200; un fichero con una descripción de un megabyte
+ * guardaría en la base algo que la aplicación no habría aceptado tecleado, y
+ * que después hay que pintar en pantallas y en informes.
+ *
+ * Si un día cambian en `lib/invoices.ts`, tienen que cambiar aquí. Se repiten en
+ * vez de importarse porque ese módulo arrastra el cliente de base de datos, y
+ * esto se lee también desde el navegador para previsualizar.
+ */
+export const MAXIMO_DESCRIPCION = 500;
+export const MAXIMO_NUMERO = 100;
+export const MAXIMO_PROVEEDOR = 200;
+
+/** Líneas por factura, igual que en el alta manual. */
+export const MAXIMO_LINEAS = 500;
+
 /** Un problema en una fila concreta del fichero. */
 export interface ErrorFila {
   /** Número de línea en el fichero, el mismo que se ve en Excel. */
@@ -205,9 +225,21 @@ function leerFila(
 
   const proveedor = celda(COLUMNAS.proveedor);
   if (proveedor === '') return falla(COLUMNAS.proveedor, 'Falta el proveedor.');
+  if (proveedor.length > MAXIMO_PROVEEDOR) {
+    return falla(
+      COLUMNAS.proveedor,
+      `El nombre del proveedor pasa de ${MAXIMO_PROVEEDOR} caracteres. Suele ser una celda con la dirección entera dentro.`,
+    );
+  }
 
   const invoiceNumber = celda(COLUMNAS.numero);
   if (invoiceNumber === '') return falla(COLUMNAS.numero, 'Falta el número de factura.');
+  if (invoiceNumber.length > MAXIMO_NUMERO) {
+    return falla(
+      COLUMNAS.numero,
+      `El número de factura pasa de ${MAXIMO_NUMERO} caracteres. Comprueba que la columna es la que toca.`,
+    );
+  }
 
   const issueDate = fechaDesdeTexto(celda(COLUMNAS.emision));
   if (issueDate === null) {
@@ -230,6 +262,12 @@ function leerFila(
 
   const description = celda(COLUMNAS.descripcion);
   if (description === '') return falla(COLUMNAS.descripcion, 'Falta la descripción de la línea.');
+  if (description.length > MAXIMO_DESCRIPCION) {
+    return falla(
+      COLUMNAS.descripcion,
+      `La descripción pasa de ${MAXIMO_DESCRIPCION} caracteres. Resúmela: lo largo se pierde en las pantallas y en los informes.`,
+    );
+  }
 
   const concept = conceptoDesdeTexto(celda(COLUMNAS.concepto));
   if (concept === null) {
@@ -398,6 +436,15 @@ export function importarFacturas(tabla: TablaCsv): Importacion {
     }
     const primera = grupo[0];
     if (primera === undefined) continue;
+
+    if (grupo.length > MAXIMO_LINEAS) {
+      errores.push({
+        fila: primera.fila,
+        columna: COLUMNAS.numero,
+        mensaje: `La factura ${primera.invoiceNumber} sale con ${grupo.length} líneas, y el máximo son ${MAXIMO_LINEAS}. Casi siempre significa que el número de factura está repetido en filas que son de facturas distintas.`,
+      });
+      continue;
+    }
 
     const lines = grupo.map((fila, indice) => ({ lineNumber: indice + 1, ...fila.linea }));
     const netCents = lines.reduce((total, linea) => total + linea.netCents, 0);
