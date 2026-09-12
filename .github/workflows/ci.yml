@@ -64,7 +64,7 @@ jobs:
       S3_FORCE_PATH_STYLE: 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # MinIO no puede declararse como `service`: necesita el argumento `server /data`,
       # que GitHub Actions no permite pasar a un contenedor de servicio.
@@ -83,9 +83,9 @@ jobs:
           docker logs minio >&2
           exit 1
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
