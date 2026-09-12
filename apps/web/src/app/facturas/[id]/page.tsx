@@ -255,7 +255,11 @@ export default async function FacturaPage({
                     <td className="p-2 tabular-nums">{linea.lineNumber}</td>
                     <td className="p-2">{linea.description}</td>
                     <td className="p-2">{CONCEPT_DEFINITIONS[linea.concept].label}</td>
-                    <td className="p-2 text-right tabular-nums">{linea.quantity}</td>
+                    {/* `quantity` es Decimal(18,4), no un número: React no lo sabe pintar y
+                        TypeScript lo rechaza. Se pasa por número para que 2.0000 salga como 2. */}
+                    <td className="p-2 text-right tabular-nums">
+                      {Number(linea.quantity).toLocaleString('es-ES')}
+                    </td>
                     <td className="p-2 text-right tabular-nums">
                       {formatearImporte(linea.unitPriceCents, factura.currency)}
                     </td>
