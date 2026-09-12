@@ -7,6 +7,7 @@ import {
   SPEND_CONCEPTS,
   budgetCategoryFor,
   conceptDefinition,
+  countsAsDepartmentSpend,
   defaultUsefulLifeMonths,
   governedSpendShare,
   periodSpend,
@@ -73,6 +74,10 @@ describe('tabla de conceptos', () => {
     expect(defaultUsefulLifeMonths('SAAS_SUBSCRIPTION')).toBeNull();
   });
 
+  it('lo que no capitaliza no tiene vida útil aunque no sea gasto del departamento', () => {
+    expect(defaultUsefulLifeMonths('RESALE_GOODS')).toBeNull();
+  });
+
   it('cada concepto sale de una categoría presupuestaria', () => {
     expect(budgetCategoryFor('SAAS_SUBSCRIPTION')).toBe('SOFTWARE_AND_SERVICES');
     expect(budgetCategoryFor('HARDWARE_SERVER')).toBe('INFRASTRUCTURE');
@@ -99,6 +104,89 @@ describe('tabla de conceptos', () => {
   });
 });
 
+describe('material para reventa · lo que no es gasto del departamento', () => {
+  it('la reventa es el único concepto sin presupuesto de departamento', () => {
+    const sinPresupuesto = SPEND_CONCEPTS.filter((c) => !countsAsDepartmentSpend(c));
+    expect(sinPresupuesto).toEqual(['RESALE_GOODS']);
+    expect(budgetCategoryFor('RESALE_GOODS')).toBeNull();
+  });
+
+  it('tiene naturaleza contable propia: coste de ventas, no un OPEX más', () => {
+    // Si compartiera `costType` con el gasto corriente no habría forma de sacar
+    // el margen de la reventa ni de cuadrarla contra la venta que la compensa.
+    expect(conceptDefinition('RESALE_GOODS').costType).toBe('COGS');
+    const conCogs = SPEND_CONCEPTS.filter((c) => conceptDefinition(c).costType === 'COGS');
+    expect(conCogs).toEqual(['RESALE_GOODS']);
+  });
+
+  it('no capitaliza: es existencia del cliente, no inmovilizado nuestro', () => {
+    expect(conceptDefinition('RESALE_GOODS').capitalises).toBe(false);
+    expect(conceptDefinition('RESALE_GOODS').assetCategory).toBeUndefined();
+  });
+
+  it('el material de uso interno sigue siendo gasto y sigue capitalizando', () => {
+    // La otra mitad de la decisión: separar la reventa no puede haber tocado lo
+    // que se queda la empresa.
+    expect(countsAsDepartmentSpend('HARDWARE_ENDUSER')).toBe(true);
+    expect(conceptDefinition('HARDWARE_ENDUSER').costType).toBe('CAPEX');
+    expect(conceptDefinition('HARDWARE_ENDUSER').capitalises).toBe(true);
+  });
+
+  it('todo lo que capitaliza es gasto del departamento', () => {
+    // Un activo sin presupuesto del que salir dejaría su amortización sin sitio.
+    for (const c of SPEND_CONCEPTS) {
+      if (conceptDefinition(c).capitalises) expect(countsAsDepartmentSpend(c)).toBe(true);
+    }
+  });
+
+  it('queda fuera del gasto gobernado, por los dos lados del ratio', () => {
+    expect(conceptDefinition('RESALE_GOODS').governable).toBe(false);
+    const soloReventa = governedSpendShare([
+      { concept: 'RESALE_GOODS', netCents: cents(900_000), hasContract: true },
+    ]);
+    expect(soloReventa).toBeNull();
+  });
+
+  it('una línea de reventa no llega siquiera a tener trato de gasto', () => {
+    const t = treatLine(linea('l1', 'RESALE_GOODS', 450_000));
+    expect(t.kind).toBe('EXCLUDED');
+    if (t.kind !== 'EXCLUDED') return;
+    expect(t.reason).toBe('NOT_DEPARTMENT_SPEND');
+  });
+
+  it('la línea de reventa se sigue viendo: se aparta, no se esconde', () => {
+    const r = periodSpend([
+      linea('l1', 'SAAS_SUBSCRIPTION', 120_000),
+      linea('l2', 'RESALE_GOODS', 450_000),
+    ]);
+
+    // No suma en el presupuesto…
+    expect(r.totalCents).toBe(120_000);
+    expect(r.byBudgetCategory).toEqual({ SOFTWARE_AND_SERVICES: 120_000 });
+    // …pero el importe está, y se puede explicar.
+    expect(r.excludedCents).toBe(450_000);
+  });
+
+  it('ni un céntimo se pierde entre los tres cubos', () => {
+    const lineas: CostableLine[] = [
+      linea('l1', 'SAAS_SUBSCRIPTION', 120_000),
+      linea('l2', 'HARDWARE_SERVER', 1_200_000, 'act-1'),
+      linea('l3', 'RESALE_GOODS', 450_000),
+    ];
+    const r = periodSpend(lineas);
+    const bruto = lineas.reduce((a, l) => a + l.netCents, 0);
+
+    expect(r.totalCents + r.capitalisedCents + r.excludedCents).toBe(bruto);
+  });
+
+  it('la reventa no se cuela como pendiente de capitalizar', () => {
+    const r = periodSpend([linea('l1', 'RESALE_GOODS', 450_000)]);
+    expect(r.pendingCapitalisation).toEqual([]);
+    expect(r.capitalisedCents).toBe(0);
+    expect(r.totalCents).toBe(0);
+  });
+});
+
 describe('validateLineConcept', () => {
   it('una línea coherente no da problemas', () => {
     expect(
@@ -120,6 +208,12 @@ describe('validateLineConcept', () => {
       assetId: 'act-1',
     });
     expect(p.map((x) => x.code)).toEqual(['ASSET_ON_NON_CAPEX']);
+  });
+
+  it('detecta material de reventa tecleado como gasto corriente', () => {
+    const p = validateLineConcept({ concept: 'RESALE_GOODS', costType: 'OPEX_ONE_OFF' });
+    expect(p.map((x) => x.code)).toEqual(['COST_TYPE_MISMATCH']);
+    expect(p[0]?.message).toContain('COGS');
   });
 
   it('acumula varios problemas en la misma línea', () => {
@@ -217,6 +311,7 @@ describe('periodSpend', () => {
     const r = periodSpend([]);
     expect(r.totalCents).toBe(0);
     expect(r.capitalisedCents).toBe(0);
+    expect(r.excludedCents).toBe(0);
     expect(r.byBudgetCategory).toEqual({});
     expect(r.pendingCapitalisation).toEqual([]);
   });

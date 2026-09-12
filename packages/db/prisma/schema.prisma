@@ -71,6 +71,9 @@ enum CostType {
   PERSONNEL_EXTERNAL
   PROJECT_COST
   PENALTY
+  /// Coste de ventas: material comprado para revenderlo a un cliente. No es
+  /// gasto del departamento; ver `CONCEPT_DEFINITIONS` en `@itfin360/finance-core`.
+  COGS
 
   @@map("cost_type")
 }
@@ -101,6 +104,7 @@ enum SpendConcept {
   CONTRACTOR
   PROJECT_SERVICES
   SLA_PENALTY
+  RESALE_GOODS
   OTHER
 
   @@map("spend_concept")

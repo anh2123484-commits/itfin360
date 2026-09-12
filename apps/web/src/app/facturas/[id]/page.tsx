@@ -1,5 +1,5 @@
 import { canEditInvoice, type InvoiceAction } from '@itfin360/db';
-import { CONCEPT_DEFINITIONS } from '@itfin360/finance-core';
+import { CONCEPT_DEFINITIONS, countsAsDepartmentSpend } from '@itfin360/finance-core';
 import { Button } from '@itfin360/ui';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -254,7 +254,18 @@ export default async function FacturaPage({
                   <tr key={linea.id} className="border-b">
                     <td className="p-2 tabular-nums">{linea.lineNumber}</td>
                     <td className="p-2">{linea.description}</td>
-                    <td className="p-2">{CONCEPT_DEFINITIONS[linea.concept].label}</td>
+                    {/* Lo que no es gasto del departamento se marca en la línea,
+                        no en una nota al pie: quien audita la factura tiene que
+                        ver en la propia fila por qué ese importe no aparece en
+                        el presupuesto. */}
+                    <td className="p-2">
+                      {CONCEPT_DEFINITIONS[linea.concept].label}
+                      {countsAsDepartmentSpend(linea.concept) ? null : (
+                        <span className="text-muted-foreground block text-xs">
+                          No consume presupuesto del departamento
+                        </span>
+                      )}
+                    </td>
                     {/* `quantity` es Decimal(18,4), no un número: React no lo sabe pintar y
                         TypeScript lo rechaza. Se pasa por número para que 2.0000 salga como 2. */}
                     <td className="p-2 text-right tabular-nums">

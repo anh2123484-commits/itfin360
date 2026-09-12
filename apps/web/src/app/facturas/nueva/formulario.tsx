@@ -1,6 +1,12 @@
 'use client';
 
-import { cents, CONCEPT_DEFINITIONS, lineNetCents, SPEND_CONCEPTS } from '@itfin360/finance-core';
+import {
+  cents,
+  CONCEPT_DEFINITIONS,
+  countsAsDepartmentSpend,
+  lineNetCents,
+  SPEND_CONCEPTS,
+} from '@itfin360/finance-core';
 import { Button } from '@itfin360/ui';
 import { useState } from 'react';
 
@@ -210,6 +216,16 @@ export function FormularioFactura({
                   </option>
                 ))}
               </select>
+              {/* El material que se compra para revender a un cliente se registra
+                  y se audita como cualquier otra línea, pero no es gasto del
+                  departamento y no consume su presupuesto. Se dice aquí, al
+                  teclear, porque es donde alguien puede equivocarse de concepto:
+                  el mismo portátil suma o no según para quién se compre. */}
+              {countsAsDepartmentSpend(linea.concept as keyof typeof CONCEPT_DEFINITIONS) ? null : (
+                <span className="text-muted-foreground w-52 text-xs">
+                  No consume presupuesto del departamento.
+                </span>
+              )}
             </label>
             <label className="flex flex-col gap-1 text-sm">
               Cantidad

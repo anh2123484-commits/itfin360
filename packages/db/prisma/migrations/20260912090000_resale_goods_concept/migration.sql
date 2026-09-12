@@ -1,0 +1,42 @@
+-- ---------------------------------------------------------------------------
+-- Material para reventa: concepto y tipo de coste propios (F2-01, ampliación)
+--
+-- Una empresa de servicios gestionados compra material de dos maneras que hasta
+-- ahora se tecleaban igual: el portátil que se queda un empleado y el portátil
+-- que se le revende a un cliente. El primero es gasto del departamento —o
+-- inmovilizado suyo, si capitaliza— y el segundo no: entra para salir facturado,
+-- y su contrapartida es una venta.
+--
+-- Meterlos en el mismo saco inflaba el coste de IT con dinero que vuelve, y
+-- dejaba el presupuesto sin cuadrar. `RESALE_GOODS` los separa. La línea se
+-- registra y queda auditada como cualquier otra —la factura está pagada y tiene
+-- que poder explicarse—, pero no consume presupuesto del departamento ni se
+-- reparte en el showback. Quien decide eso es `treatLine` en
+-- `@itfin360/finance-core`: el concepto no tiene categoría presupuestaria, y sin
+-- categoría no hay presupuesto del que salir.
+--
+-- `COGS` (coste de ventas) es la naturaleza contable que le corresponde. Es un
+-- valor nuevo de `cost_type` y no una reutilización de `OPEX_ONE_OFF`, porque lo
+-- que distingue a la reventa no es cuándo se gasta sino de quién es el coste.
+--
+-- Migración aditiva (regla dura 10): sólo añade valores a dos enums. No toca ni
+-- una fila, no cambia ninguna columna y no crea tablas, así que no hay RLS que
+-- declarar. Ninguna factura existente cambia de tratamiento: las que ya están
+-- grabadas siguen con el concepto con el que se teclearon.
+--
+-- Sobre `ADD VALUE` dentro de transacción: PostgreSQL 12 y posteriores lo
+-- permiten mientras el valor nuevo no se **use** en la misma transacción. Aquí
+-- sólo se declara, no se escribe ninguna fila con él, así que corre sin sacarlo
+-- del bloque que abre `prisma migrate deploy`. El proyecto fija PostgreSQL 16.
+--
+-- `RESALE_GOODS` va antes de `OTHER` a propósito: `spend_concept` y
+-- `SPEND_CONCEPTS` de `finance-core` tienen que declarar los mismos valores en
+-- el mismo orden, y `packages/db/src/concept-enum.test.ts` lo comprueba. `OTHER`
+-- es el cajón de sastre y se queda el último.
+-- ---------------------------------------------------------------------------
+
+-- AlterEnum
+ALTER TYPE "cost_type" ADD VALUE 'COGS';
+
+-- AlterEnum
+ALTER TYPE "spend_concept" ADD VALUE 'RESALE_GOODS' BEFORE 'OTHER';

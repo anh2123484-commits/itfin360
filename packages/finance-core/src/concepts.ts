@@ -18,9 +18,22 @@ import { ZERO_CENTS, addCents } from './money.js';
 import type { AssetCategory } from './depreciation.js';
 import { DEFAULT_USEFUL_LIFE_MONTHS } from './depreciation.js';
 
-/** Naturaleza contable de una línea (`CostType` en `docs/03`). */
+/**
+ * Naturaleza contable de una línea (`CostType` en `docs/03`).
+ *
+ * `COGS` (coste de ventas) es la excepción: no es gasto del departamento. Es lo
+ * que se compra para revenderlo a un cliente, y su contrapartida es una venta.
+ * Sumarlo al gasto de IT inflaría el coste del departamento con dinero que
+ * vuelve facturado, y dejaría el presupuesto sin cuadrar.
+ */
 export type CostType =
-  'OPEX_RECURRING' | 'OPEX_ONE_OFF' | 'CAPEX' | 'PERSONNEL_EXTERNAL' | 'PROJECT_COST' | 'PENALTY';
+  | 'OPEX_RECURRING'
+  | 'OPEX_ONE_OFF'
+  | 'CAPEX'
+  | 'PERSONNEL_EXTERNAL'
+  | 'PROJECT_COST'
+  | 'PENALTY'
+  | 'COGS';
 
 /**
  * Categoría presupuestaria: el nivel al que se fija el presupuesto anual
@@ -67,6 +80,7 @@ export const SPEND_CONCEPTS = [
   'CONTRACTOR',
   'PROJECT_SERVICES',
   'SLA_PENALTY',
+  'RESALE_GOODS',
   'OTHER',
 ] as const;
 
@@ -80,8 +94,17 @@ export interface ConceptDefinition {
   readonly label: string;
   /** Naturaleza contable que le corresponde. */
   readonly costType: CostType;
-  /** De qué presupuesto sale. */
-  readonly budgetCategory: BudgetCategory;
+  /**
+   * De qué presupuesto del departamento sale, o `null` si no sale de ninguno.
+   *
+   * `null` no es «todavía no lo sabemos»: es «esto no es gasto del
+   * departamento». El único caso hoy es el material comprado para revender a un
+   * cliente. Se registra y queda auditado, pero no consume presupuesto de IT ni
+   * se reparte en el showback, porque no es coste que el departamento soporte.
+   * Al ser `null` y no un valor más, el compilador obliga a cada consumidor a
+   * decidir qué hace con él en vez de dejarlo caer en una categoría cualquiera.
+   */
+  readonly budgetCategory: BudgetCategory | null;
   /** Si es run, change, o depende de a qué se impute la línea. */
   readonly workNature: WorkNature;
   /** Si genera un activo y por tanto se amortiza en vez de contar como gasto. */
@@ -336,6 +359,23 @@ export const CONCEPT_DEFINITIONS: Readonly<Record<SpendConcept, ConceptDefinitio
     typicallyRecurring: false,
     governable: false,
   },
+  RESALE_GOODS: {
+    id: 'RESALE_GOODS',
+    label: 'Material para reventa a cliente',
+    // Coste de ventas, no gasto de IT: entra para revenderse y sale facturado.
+    costType: 'COGS',
+    // Sin presupuesto de departamento a propósito: ver `budgetCategory` arriba.
+    budgetCategory: null,
+    workNature: 'FROM_IMPUTATION',
+    // No capitaliza: es existencia para un cliente, no inmovilizado nuestro. El
+    // material de la misma caja que se queda la empresa se teclea con su
+    // concepto de hardware, que sí capitaliza y sí consume presupuesto.
+    capitalises: false,
+    typicallyRecurring: false,
+    // Fuera del gasto gobernado: no es gasto del departamento, así que ni suma
+    // al numerador ni al denominador del indicador 7.
+    governable: false,
+  },
   OTHER: {
     id: 'OTHER',
     label: 'Otros',
@@ -353,9 +393,20 @@ export function conceptDefinition(concept: SpendConcept): ConceptDefinition {
   return CONCEPT_DEFINITIONS[concept];
 }
 
-/** Categoría presupuestaria de la que sale un concepto. */
-export function budgetCategoryFor(concept: SpendConcept): BudgetCategory {
+/** Categoría presupuestaria de la que sale un concepto, o `null` si de ninguna. */
+export function budgetCategoryFor(concept: SpendConcept): BudgetCategory | null {
   return CONCEPT_DEFINITIONS[concept].budgetCategory;
+}
+
+/**
+ * Si un concepto cuenta como gasto del departamento.
+ *
+ * Se deriva de `budgetCategory`, no se guarda aparte: con dos campos que
+ * dijeran lo mismo acabaría habiendo un concepto con bandera a `false` y
+ * categoría puesta, y entonces ninguno de los dos sería la verdad.
+ */
+export function countsAsDepartmentSpend(concept: SpendConcept): boolean {
+  return CONCEPT_DEFINITIONS[concept].budgetCategory !== null;
 }
 
 /**
@@ -418,11 +469,15 @@ export interface CostableLine {
   readonly assetId?: string | undefined;
 }
 
+/** Por qué una línea queda fuera del gasto del departamento. */
+export type ExclusionReason = 'NOT_DEPARTMENT_SPEND';
+
 /** Cómo se trata una línea al calcular el gasto de un periodo. */
 export type LineTreatment =
   | { readonly kind: 'PERIOD_COST'; readonly budgetCategory: BudgetCategory }
   | { readonly kind: 'CAPITALISED'; readonly assetId: string }
-  | { readonly kind: 'PENDING_CAPITALISATION'; readonly budgetCategory: BudgetCategory };
+  | { readonly kind: 'PENDING_CAPITALISATION'; readonly budgetCategory: BudgetCategory }
+  | { readonly kind: 'EXCLUDED'; readonly reason: ExclusionReason };
 
 /**
  * Decide si una línea cuenta como gasto del periodo o entra por amortización.
@@ -437,10 +492,19 @@ export type LineTreatment =
  * `PENDING_CAPITALISATION` para que la interfaz pueda reclamar el alta. Si no se
  * distinguiera, el día que alguien cree el activo el importe pasaría a contarse
  * dos veces sin que nadie se entere.
+ *
+ * Antes que nada se aparta lo que no es gasto del departamento: el material
+ * comprado para revender sale como `EXCLUDED`. Queda registrado y auditado —la
+ * factura existe y la línea también—, pero no entra en el presupuesto ni en el
+ * showback. Se descarta primero, y no al final, para que ningún camino
+ * posterior lo pueda colar en una categoría presupuestaria.
  */
 export function treatLine(line: CostableLine): LineTreatment {
   const definicion = CONCEPT_DEFINITIONS[line.concept];
 
+  if (definicion.budgetCategory === null) {
+    return { kind: 'EXCLUDED', reason: 'NOT_DEPARTMENT_SPEND' };
+  }
   if (!definicion.capitalises) {
     return { kind: 'PERIOD_COST', budgetCategory: definicion.budgetCategory };
   }
@@ -462,6 +526,14 @@ export interface PeriodSpend {
   readonly byBudgetCategory: Readonly<Partial<Record<BudgetCategory, Cents>>>;
   /** Importe que ya no cuenta aquí porque entra por amortización. */
   readonly capitalisedCents: Cents;
+  /**
+   * Importe que no es gasto del departamento (material para reventa).
+   *
+   * Se devuelve en vez de callarse: la factura está pagada y tiene que poder
+   * explicarse. Aquí se ve el importe y en qué se ha ido, sin que sume en el
+   * presupuesto.
+   */
+  readonly excludedCents: Cents;
   /** Líneas CAPEX sin activo dado de alta: cuentan, pero hay que regularizarlas. */
   readonly pendingCapitalisation: readonly PendingCapitalisation[];
 }
@@ -471,15 +543,25 @@ export interface PeriodSpend {
  *
  * La suma de `byBudgetCategory` es exactamente `totalCents`: si el desglose por
  * categoría no cuadrase con el total, el presupuesto dejaría de poder auditarse.
+ * Por eso lo que no tiene categoría —la reventa— no entra en `totalCents`: sale
+ * aparte en `excludedCents`, y así el desglose sigue cuadrando sin esconder el
+ * importe. Ni un céntimo de las líneas se pierde: cada uno cae en `totalCents`,
+ * en `capitalisedCents` o en `excludedCents`, y en uno solo de los tres.
  */
 export function periodSpend(lines: readonly CostableLine[]): PeriodSpend {
   const porCategoria = new Map<BudgetCategory, Cents>();
   const pendientes: { lineId: string; netCents: Cents }[] = [];
   let total = ZERO_CENTS;
   let capitalizado = ZERO_CENTS;
+  let excluido = ZERO_CENTS;
 
   for (const line of lines) {
     const trato = treatLine(line);
+
+    if (trato.kind === 'EXCLUDED') {
+      excluido = addCents(excluido, line.netCents);
+      continue;
+    }
 
     if (trato.kind === 'CAPITALISED') {
       capitalizado = addCents(capitalizado, line.netCents);
@@ -503,6 +585,7 @@ export function periodSpend(lines: readonly CostableLine[]): PeriodSpend {
     totalCents: total,
     byBudgetCategory: desglose,
     capitalisedCents: capitalizado,
+    excludedCents: excluido,
     pendingCapitalisation: pendientes,
   };
 }
@@ -522,12 +605,17 @@ export interface GovernableLine {
  * contrato a un consumible o a una penalización de SLA penalizaría al
  * departamento por algo que no tiene arreglo. `null` si no hay gasto gobernable,
  * porque entonces el ratio no significa nada.
+ *
+ * Lo que no es gasto del departamento tampoco entra, aunque alguien marcase el
+ * concepto como gobernable: este indicador mide cómo gobierna el departamento
+ * su propio gasto, y el material que se revende no lo es.
  */
 export function governedSpendShare(lines: readonly GovernableLine[]): number | null {
   let gobernable = 0;
   let gobernado = 0;
 
   for (const line of lines) {
+    if (!countsAsDepartmentSpend(line.concept)) continue;
     if (!CONCEPT_DEFINITIONS[line.concept].governable) continue;
     gobernable += line.netCents;
     if (line.hasContract) gobernado += line.netCents;

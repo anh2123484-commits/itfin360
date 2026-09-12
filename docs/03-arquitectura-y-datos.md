@@ -113,7 +113,12 @@ model InvoiceLine {
   costType CostType; category String
   serviceId String?; costCenterId String?; projectId String?; assetId String?
 }
-enum CostType { OPEX_RECURRING OPEX_ONE_OFF CAPEX PERSONNEL_EXTERNAL PROJECT_COST PENALTY }
+enum CostType { OPEX_RECURRING OPEX_ONE_OFF CAPEX PERSONNEL_EXTERNAL PROJECT_COST PENALTY COGS }
+// COGS = coste de ventas: material comprado para revenderlo a un cliente. No es
+// gasto del departamento, así que su concepto (RESALE_GOODS) no tiene categoría
+// presupuestaria: se registra y se audita, pero no consume presupuesto de IT ni
+// entra en el showback. El material equivalente de uso interno se teclea con su
+// concepto de hardware, que sí es gasto y sí capitaliza.
 
 // ---------- Inmovilizado ----------
 model Asset {
