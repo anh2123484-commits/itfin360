@@ -1,4 +1,4 @@
-import type { TenantDb } from '@itfin360/db';
+import { InvoiceSource, type TenantDb } from '@itfin360/db';
 import { type InvoiceIssue, validateInvoice } from '@itfin360/finance-core';
 
 import { aInstanteUtc } from '@/lib/fechas';
@@ -14,7 +14,20 @@ import type { Principal } from '@/lib/permissions';
  *
  * Devuelve el rechazo en vez de lanzarlo: quien llama decide si eso es un 422 o
  * un mensaje en rojo debajo del formulario.
+ *
+ * El origen entra por parámetro porque la misma función da de alta lo que se
+ * teclea y lo que se importa de un fichero, y al auditar una factura importa
+ * saber por dónde entró: una factura que nadie tecleó se revisa de otra manera.
  */
+
+/**
+ * Por dónde entró la factura.
+ *
+ * El tipo se deriva del enum del esquema en vez de escribir la unión a mano:
+ * así no puede quedarse atrás cuando se añada un origen nuevo, y el conector de
+ * ERP no tendrá que acordarse de tocar este fichero.
+ */
+export type OrigenFactura = (typeof InvoiceSource)[keyof typeof InvoiceSource];
 
 /** Por qué no se ha dado de alta. */
 export type RechazoAlta =
@@ -44,6 +57,7 @@ export async function altaDeFactura(
   tx: TenantDb,
   principal: Principal,
   datos: FacturaEntrante,
+  origen: OrigenFactura = 'MANUAL',
 ): Promise<FacturaCreada | RechazoAlta> {
   const lineas = conNumerosDeLinea(datos.lines);
 
@@ -87,7 +101,7 @@ export async function altaDeFactura(
       // El estado no se acepta de fuera: toda factura nace en borrador y se
       // mueve por el flujo de aprobación, que es lo que deja el rastro.
       status: 'DRAFT',
-      source: 'MANUAL',
+      source: origen,
       createdById: principal.userId,
       lines: {
         create: lineas.map((linea) => ({
@@ -114,6 +128,7 @@ export async function altaDeFactura(
       entityId: factura.id,
       after: {
         status: factura.status,
+        source: origen,
         invoiceNumber: factura.invoiceNumber,
         grossCents: factura.grossCents,
         currency: factura.currency,

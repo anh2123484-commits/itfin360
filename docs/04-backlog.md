@@ -108,9 +108,19 @@ Alta/edición, estados `DRAFT → PENDING_REVIEW → APPROVED → POSTED`, recha
 Exacto por número de factura y difuso por `(proveedor, importe, fecha ±5 días)`.
 *Aceptación:* alta de un duplicado exacto → 409 con referencia a la factura existente; el difuso avisa pero no bloquea.
 
-**F2-04 · Importación CSV/Excel con mapeo** · L · Dep: F2-02, F0-08
-Subida, detección de cabeceras, mapeo de columnas guardable como plantilla, previsualización, validación fila a fila, importación en job con informe de errores descargable.
-*Aceptación:* un CSV de 5.000 filas con 12 filas inválidas importa 4.988 y devuelve el informe; la operación es reanudable y no duplica al reintentar.
+**F2-04 · Importación CSV/Excel** · L · Dep: F2-02, F0-08
+
+*Primera entrega, hecha:* plantilla fija descargable (se genera del plan de conceptos, así que no se desfasa), lectura de CSV con separador `;` o `,`, previsualización en el navegador con los errores señalados por fila y columna, e importación en una sola transacción. Los proveedores que no existen se crean y se dicen al terminar. Todo entra en borrador y con `source = CSV_IMPORT`.
+
+Tres decisiones se apartan de la ficha original. Se dejan escritas porque el código las obedece:
+
+1. **Sin mapeo de columnas en pantalla.** Las cabeceras son las de la plantilla. El mapeo es cómodo a partir de la segunda importación, pero es una pieza más que puede interpretar mal un fichero, y la plantilla se descarga de la propia pantalla.
+2. **La importación es todo o nada, no parcial.** El criterio original («importa 4.988 de 5.000 y devuelve el informe») deja a quien la ejecuta sin saber qué entró, con un fichero que ya no puede volver a subir entero sin duplicar la mitad. Aquí, mientras quede un error no entra nada y el fichero se corrige y se vuelve a subir.
+3. **De momento sólo CSV.** Leer `.xlsx` necesita una dependencia nueva; entra en la segunda entrega para que ese cambio se pueda revisar y revertir solo.
+
+*Aceptación de esta entrega:* una factura de varias partidas se escribe en varias filas con el mismo proveedor y número, y se agrupa; el IVA repetido en cada fila cuenta una sola vez; una fila inválida bloquea la importación entera y se señala su número de fila, el mismo que se ve en Excel; un proveedor escrito con otras mayúsculas o acentos no se duplica; la plantilla que se descarga pasa por el lector sin un solo error.
+
+*Pendiente:* `.xlsx`, mapeo de columnas guardable, job en segundo plano con informe descargable y tandas de más de 100 facturas (hoy el tope viene del tiempo que puede durar una transacción).
 
 **F2-05 · Explorador de costes (UI)** · L · Dep: F2-02
 Tabla con filtros (periodo, proveedor, servicio, tipo, estado), agrupaciones, totales y drill-down hasta el PDF.
