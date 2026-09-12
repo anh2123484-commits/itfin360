@@ -20,8 +20,8 @@
   "devDependencies": {
     "@itfin360/config": "workspace:*",
     "@types/node": "^22.13.0",
-    "eslint": "^10.9.0",
-    "tsx": "^4.19.0",
+    "eslint": "^10.10.0",
+    "tsx": "^4.23.13",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }
