@@ -116,11 +116,13 @@ Tres decisiones se apartan de la ficha original. Se dejan escritas porque el có
 
 1. **Sin mapeo de columnas en pantalla.** Las cabeceras son las de la plantilla. El mapeo es cómodo a partir de la segunda importación, pero es una pieza más que puede interpretar mal un fichero, y la plantilla se descarga de la propia pantalla.
 2. **La importación es todo o nada, no parcial.** El criterio original («importa 4.988 de 5.000 y devuelve el informe») deja a quien la ejecuta sin saber qué entró, con un fichero que ya no puede volver a subir entero sin duplicar la mitad. Aquí, mientras quede un error no entra nada y el fichero se corrige y se vuelve a subir.
-3. **De momento sólo CSV.** Leer `.xlsx` necesita una dependencia nueva; entra en la segunda entrega para que ese cambio se pueda revisar y revertir solo.
+3. **Sólo CSV en la primera entrega.** El `.xlsx` llegó en la segunda, con un lector propio de ZIP y de hojas de Excel, sin añadir ninguna dependencia: descomprime con `DecompressionStream`, que es parte de la plataforma y existe igual en el navegador y en el servidor.
 
 *Aceptación de esta entrega:* una factura de varias partidas se escribe en varias filas con el mismo proveedor y número, y se agrupa; el IVA repetido en cada fila cuenta una sola vez; una fila inválida bloquea la importación entera y se señala su número de fila, el mismo que se ve en Excel; un proveedor escrito con otras mayúsculas o acentos no se duplica; la plantilla que se descarga pasa por el lector sin un solo error.
 
-*Pendiente:* `.xlsx`, mapeo de columnas guardable, job en segundo plano con informe descargable y tandas de más de 100 facturas (hoy el tope viene del tiempo que puede durar una transacción).
+*Segunda entrega, hecha:* se acepta `.xlsx` además de CSV. El formato se decide por el contenido y no por la extensión, y el fichero viaja entero al servidor, que lo vuelve a leer desde el binario original. Las fechas de Excel se resuelven mirando el formato de la celda, no el valor: el número de días que Excel guarda es indistinguible de un importe.
+
+*Pendiente:* mapeo de columnas guardable, job en segundo plano con informe descargable, tandas de más de 100 facturas (hoy el tope viene del tiempo que puede durar una transacción) y libros de Excel con varias hojas (se lee la primera).
 
 **F2-05 · Explorador de costes (UI)** · L · Dep: F2-02
 Tabla con filtros (periodo, proveedor, servicio, tipo, estado), agrupaciones, totales y drill-down hasta el PDF.

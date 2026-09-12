@@ -1,20 +1,26 @@
 'use client';
 
 import { Button } from '@itfin360/ui';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
-import { parsearCsv } from '@/lib/csv';
 import { formatearImporte } from '@/lib/formato';
-import { importarFacturas } from '@/lib/importacion';
+import { importarFacturas, type Importacion } from '@/lib/importacion';
+import { type FormatoFichero, leerFichero } from '@/lib/lectura';
+import { ExcelInvalido } from '@/lib/xlsx';
 
 /**
  * Lectura del fichero y previsualización, en el navegador (F2-04).
  *
  * El fichero se lee y se analiza aquí, sin subirlo: los errores salen mientras
  * se elige el fichero, no después de una vuelta al servidor. Puede hacerse
- * porque `importarFacturas` es puro y no toca la base; el servidor vuelve a
- * hacer exactamente lo mismo antes de escribir nada, así que esto es comodidad
- * y no control.
+ * porque leer y clasificar es puro y no toca la base; el servidor vuelve a
+ * hacer exactamente lo mismo sobre el fichero original antes de escribir nada,
+ * así que esto es comodidad y no control.
+ *
+ * El fichero viaja tal cual dentro del formulario, sin convertirlo aquí a nada.
+ * Mandando el texto ya interpretado por el navegador, lo que el servidor
+ * validaría sería el trabajo del cliente, y entonces la comprobación del
+ * servidor dejaría de ser una comprobación.
  *
  * Nada de aquí importa `@itfin360/db`: ese paquete arrastra el cliente Prisma y
  * `pg`, y `pg` pide `fs` y `dns`, que en un navegador no existen.
@@ -23,59 +29,86 @@ import { importarFacturas } from '@/lib/importacion';
 /** Cuántos errores se pintan antes de resumir. Mil filas malas no se leen. */
 const ERRORES_VISIBLES = 25;
 
+const NOMBRE_FORMATO: Readonly<Record<FormatoFichero, string>> = {
+  csv: 'CSV',
+  excel: 'Excel',
+};
+
+/** Lo que se ha podido sacar del fichero elegido. */
+type Analisis =
+  | { readonly estado: 'leyendo' }
+  | { readonly estado: 'error'; readonly mensaje: string }
+  | { readonly estado: 'listo'; readonly formato: FormatoFichero; readonly lectura: Importacion };
+
 export function Importador({
   importar,
 }: {
   readonly importar: (formData: FormData) => Promise<void>;
 }) {
-  const [texto, setTexto] = useState<string | null>(null);
-  const [leyendo, setLeyendo] = useState(false);
-
-  const analisis = useMemo(
-    () => (texto === null ? null : importarFacturas(parsearCsv(texto))),
-    [texto],
-  );
-
-  const totalCents =
-    analisis?.facturas.reduce((suma, factura) => suma + factura.grossCents, 0) ?? 0;
-  const lineas = analisis?.facturas.reduce((suma, factura) => suma + factura.lines.length, 0) ?? 0;
-  const divisas = new Set(analisis?.facturas.map((factura) => factura.currency) ?? []);
-  const sePuedeImportar =
-    analisis !== null && analisis.errores.length === 0 && analisis.facturas.length > 0;
+  const [analisis, setAnalisis] = useState<Analisis | null>(null);
 
   async function elegir(archivo: File | undefined): Promise<void> {
     if (archivo === undefined) {
-      setTexto(null);
+      setAnalisis(null);
       return;
     }
-    setLeyendo(true);
+    setAnalisis({ estado: 'leyendo' });
     try {
-      setTexto(await archivo.text());
-    } finally {
-      setLeyendo(false);
+      const { formato, tabla } = await leerFichero(await archivo.arrayBuffer());
+      setAnalisis({ estado: 'listo', formato, lectura: importarFacturas(tabla) });
+    } catch (error) {
+      setAnalisis({
+        estado: 'error',
+        mensaje:
+          error instanceof ExcelInvalido
+            ? error.message
+            : 'No se ha podido leer el fichero. Comprueba que es un CSV o un Excel.',
+      });
     }
   }
 
+  const listo = analisis?.estado === 'listo' ? analisis : null;
+  const facturas = listo?.lectura.facturas ?? [];
+  const errores = listo?.lectura.errores ?? [];
+  const totalCents = facturas.reduce((suma, factura) => suma + factura.grossCents, 0);
+  const lineas = facturas.reduce((suma, factura) => suma + factura.lines.length, 0);
+  const divisas = new Set(facturas.map((factura) => factura.currency));
+  const sePuedeImportar = listo !== null && errores.length === 0 && facturas.length > 0;
+
   return (
-    <div className="flex flex-col gap-5">
+    <form action={importar} className="flex flex-col gap-5">
       <label className="flex flex-col gap-2 text-sm">
-        Fichero CSV
+        Fichero CSV o Excel
         <input
           type="file"
-          accept=".csv,text/csv"
+          name="fichero"
+          accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           onChange={(evento) => void elegir(evento.target.files?.[0])}
           className="rounded border px-3 py-2"
         />
       </label>
 
-      {leyendo ? <p className="text-muted-foreground text-sm">Leyendo el fichero…</p> : null}
+      {analisis?.estado === 'leyendo' ? (
+        <p className="text-muted-foreground text-sm">Leyendo el fichero…</p>
+      ) : null}
 
-      {analisis === null ? null : (
+      {analisis?.estado === 'error' ? (
+        <p className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+          {analisis.mensaje}
+        </p>
+      ) : null}
+
+      {listo === null ? null : (
         <section className="flex flex-col gap-3">
-          <h2 className="text-lg font-medium">Lo que se va a importar</h2>
+          <h2 className="text-lg font-medium">
+            Lo que se va a importar{' '}
+            <span className="text-muted-foreground text-sm font-normal">
+              (leído como {NOMBRE_FORMATO[listo.formato]})
+            </span>
+          </h2>
 
           <div className="flex flex-wrap gap-3">
-            <Dato titulo="Facturas" valor={String(analisis.facturas.length)} />
+            <Dato titulo="Facturas" valor={String(facturas.length)} />
             <Dato titulo="Líneas" valor={String(lineas)} />
             <Dato
               titulo="Total"
@@ -85,10 +118,10 @@ export function Importador({
                   : formatearImporte(totalCents, [...divisas][0] ?? 'EUR')
               }
             />
-            <Dato titulo="Errores" valor={String(analisis.errores.length)} />
+            <Dato titulo="Errores" valor={String(errores.length)} />
           </div>
 
-          {analisis.errores.length > 0 ? (
+          {errores.length > 0 ? (
             <div className="flex flex-col gap-2">
               <p className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900">
                 No se importa nada mientras quede un error. Corrige el fichero y vuelve a elegirlo.
@@ -104,7 +137,7 @@ export function Importador({
                     </tr>
                   </thead>
                   <tbody>
-                    {analisis.errores.slice(0, ERRORES_VISIBLES).map((error, indice) => (
+                    {errores.slice(0, ERRORES_VISIBLES).map((error, indice) => (
                       <tr
                         key={`${error.fila}-${error.columna ?? ''}-${indice}`}
                         className="border-b"
@@ -117,16 +150,16 @@ export function Importador({
                   </tbody>
                 </table>
               </div>
-              {analisis.errores.length > ERRORES_VISIBLES ? (
+              {errores.length > ERRORES_VISIBLES ? (
                 <p className="text-muted-foreground text-xs">
-                  Y {analisis.errores.length - ERRORES_VISIBLES} más. Suelen ser el mismo fallo
-                  repetido: arregla estos y vuelve a subirlo.
+                  Y {errores.length - ERRORES_VISIBLES} más. Suelen ser el mismo fallo repetido:
+                  arregla estos y vuelve a subirlo.
                 </p>
               ) : null}
             </div>
           ) : null}
 
-          {analisis.errores.length === 0 && analisis.facturas.length > 0 ? (
+          {errores.length === 0 && facturas.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-muted-foreground text-left">
@@ -139,7 +172,7 @@ export function Importador({
                   </tr>
                 </thead>
                 <tbody>
-                  {analisis.facturas.map((factura) => (
+                  {facturas.map((factura) => (
                     <tr key={`${factura.proveedor}-${factura.invoiceNumber}`} className="border-b">
                       <td className="p-2">{factura.proveedor}</td>
                       <td className="p-2 font-mono text-xs">{factura.invoiceNumber}</td>
@@ -159,8 +192,7 @@ export function Importador({
         </section>
       )}
 
-      <form action={importar} className="flex items-center gap-3">
-        <input type="hidden" name="contenido" value={texto ?? ''} />
+      <div className="flex items-center gap-3">
         <Button type="submit" disabled={!sePuedeImportar}>
           Importar
         </Button>
@@ -168,8 +200,8 @@ export function Importador({
           Todo entra en borrador. Para que cuente como gasto hay que mandarlo a revisión y
           aprobarlo, factura a factura.
         </span>
-      </form>
-    </div>
+      </div>
+    </form>
   );
 }
 
