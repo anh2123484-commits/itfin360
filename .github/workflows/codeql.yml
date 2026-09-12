@@ -1,0 +1,56 @@
+name: CodeQL
+
+# Análisis estático de seguridad sobre el código, no sobre las dependencias.
+#
+# Busca la clase de fallo que un test no encuentra porque el test comprueba lo
+# que la función debe hacer, no lo que se le puede hacer: datos que llegan de
+# fuera y acaban en una consulta, en una redirección o en el sistema de
+# ficheros. Es exactamente la familia de los dos agujeros de la importación que
+# se arreglaron a mano (ver `docs/07-auditoria-seguridad-privacidad.md`).
+#
+# Se ejecuta también los lunes, no sólo en cada PR: las reglas de CodeQL se
+# actualizan, y código que hoy pasa limpio puede no pasarlo dentro de un mes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, 'feat/**']
+  schedule:
+    - cron: '0 5 * * 1'
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: analizar javascript-typescript
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      # `security-events: write` es lo que deja publicar los hallazgos en la
+      # pestaña Security. Sin ese permiso el análisis corre y no se ve.
+      security-events: write
+      contents: read
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # `security-and-quality` trae, además de los avisos de seguridad, los
+          # de código sospechoso. Salen más cosas y merece la pena: casi todas
+          # las de calidad aquí son código muerto o comparaciones que no hacen
+          # lo que parece.
+          queries: security-and-quality
+
+      # No se compila nada: para TypeScript, CodeQL analiza el código fuente. Se
+      # evita así tener que montar la base de datos y las variables de entorno
+      # que necesita `next build`, que ya cubre el otro workflow.
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
