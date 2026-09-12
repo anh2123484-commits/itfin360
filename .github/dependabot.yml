@@ -1,0 +1,56 @@
+version: 2
+
+# Actualización de dependencias.
+#
+# Está aquí porque la parte de la seguridad que más se descuida es la que no se
+# ve: una dependencia con un fallo conocido no rompe nada, no sale en ningún
+# test y sigue ahí meses. Dependabot abre la PR el día que se publica el aviso,
+# y el CI dice si pasa.
+#
+# Agrupado a propósito. Sin agrupar, una semana normal son diez PR que nadie
+# revisa; agrupadas por tipo son una o dos, y se pueden mirar de verdad. Las
+# mayores van sueltas porque suelen traer cambios que rompen y merecen leerse
+# una por una.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Madrid
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # Parches y menores de todo el monorepo, en una sola PR.
+      dependencias-menores:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      # Los avisos de seguridad no se agrupan por versión: se agrupan todos
+      # juntos para que salga una PR y se vea de un vistazo qué hay pendiente.
+      seguridad:
+        applies-to: security-updates
+        patterns:
+          - '*'
+
+  # Las propias acciones del CI son código que se ejecuta con permisos sobre el
+  # repositorio. Una acción de tercero abandonada es una puerta de entrada.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Madrid
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      acciones:
+        patterns:
+          - '*'
