@@ -51,9 +51,15 @@ describe('parsearCsv', () => {
   });
 
   it('se come el BOM que Excel pone al guardar en UTF-8', () => {
-    // Sin esto la primera cabecera se llama "﻿proveedor" y la columna
+    // Sin esto la primera cabecera se llama "\uFEFFproveedor" y la columna
     // obligatoria parece que falta, con el fichero perfectamente bien.
-    expect(parsearCsv('﻿proveedor;numero\nAmazon;1').cabeceras).toEqual(['proveedor', 'numero']);
+    //
+    // El BOM va escapado y no pegado en el código: un carácter invisible en el
+    // fuente es justo lo que nadie ve al revisar, y el linter lo rechaza.
+    expect(parsearCsv('\uFEFFproveedor;numero\nAmazon;1').cabeceras).toEqual([
+      'proveedor',
+      'numero',
+    ]);
   });
 
   it('respeta el separador dentro de comillas', () => {

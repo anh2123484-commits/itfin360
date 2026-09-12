@@ -1,4 +1,4 @@
-import { InvoiceSource, type TenantDb } from '@itfin360/db';
+import type { Invoice, TenantDb } from '@itfin360/db';
 import { type InvoiceIssue, validateInvoice } from '@itfin360/finance-core';
 
 import { aInstanteUtc } from '@/lib/fechas';
@@ -23,11 +23,11 @@ import type { Principal } from '@/lib/permissions';
 /**
  * Por dónde entró la factura.
  *
- * El tipo se deriva del enum del esquema en vez de escribir la unión a mano:
- * así no puede quedarse atrás cuando se añada un origen nuevo, y el conector de
- * ERP no tendrá que acordarse de tocar este fichero.
+ * El tipo se saca del propio campo del modelo en vez de escribir la unión a
+ * mano: así no puede quedarse atrás cuando se añada un origen nuevo, y el
+ * conector de ERP no tendrá que acordarse de tocar este fichero.
  */
-export type OrigenFactura = (typeof InvoiceSource)[keyof typeof InvoiceSource];
+export type OrigenFactura = Invoice['source'];
 
 /** Por qué no se ha dado de alta. */
 export type RechazoAlta =
