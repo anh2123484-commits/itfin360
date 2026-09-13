@@ -16,6 +16,12 @@ export const PUBLIC_PATHS: readonly string[] = [
   // Entrada. Alta no hay: una cuenta sólo nace de una invitación, y la
   // contraseña se pone desde dentro, en `/cuenta/contrasena`, con sesión.
   '/login',
+  // El enlace de invitación. Tiene que abrirse sin sesión, porque quien lo
+  // abre todavía no tiene cuenta; si pidiera sesión, el middleware redirigiría
+  // a `/login?callbackUrl=/invitacion/<tenant>/<token>` y el token acabaría en
+  // el query string. Ojo: es `/invitacion`, en singular. `/invitaciones`, que
+  // es donde se crean y se revocan, sigue detrás de la sesión y del permiso.
+  '/invitacion',
   // Callbacks de NextAuth: el enlace mágico llega sin sesión, por definición.
   '/api/auth',
   // Señal de vida del proceso. Tiene que responder sin sesión o la sonda

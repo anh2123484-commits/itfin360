@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { HttpError } from '@/lib/http';
+import { leerInvitacion } from '@/lib/invitacion-cookie';
 import type { Principal } from '@/lib/permissions';
 
 export const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -26,6 +27,178 @@ export const acceptInvitationSchema = z.object({
 /** El token viaja en el enlace; en la tabla sólo queda su SHA-256. */
 export function hashInvitationToken(token: string): string {
   return createHash('sha256').update(token).digest('base64url');
+}
+
+/**
+ * El enlace que se manda a quien se invita.
+ *
+ * Vive en `/invitacion`, fuera de `/invitaciones`, por dos razones. Una: esa
+ * ruta tiene que ser pública, porque quien la abre todavía no tiene cuenta, y
+ * `/invitaciones` es donde se crean y se revocan, que no puede serlo. Dos: al
+ * abrirla, el token pasa a una cookie y la dirección se queda limpia, así que
+ * el token no llega ni al login ni a las pantallas de error.
+ */
+export function enlaceDeInvitacion(base: string, tenantId: string, token: string): string {
+  return new URL(`/invitacion/${tenantId}/${token}`, base).toString();
+}
+
+/** Lo que se puede enseñar de una invitación a quien trae el token. */
+export interface InvitacionVista {
+  readonly id: string;
+  readonly tenantName: string;
+  readonly role: Role;
+  readonly canViewCompensation: boolean;
+  /** Correo enmascarado: quien trae el token no tiene por qué ver la dirección entera. */
+  readonly correoOculto: string;
+  readonly expiresAt: Date;
+}
+
+/**
+ * Tapa el correo dejando lo justo para reconocerlo.
+ *
+ * Quien abre el enlace ya demuestra que lo tiene, pero no que sea el invitado.
+ * Enseñar `a***@empresa.com` deja a la persona comprobar que la invitación es
+ * para ella sin regalar la dirección a quien haya podido interceptarla.
+ */
+export function ocultarCorreo(email: string): string {
+  const arroba = email.lastIndexOf('@');
+  if (arroba <= 0) return '***';
+  const nombre = email.slice(0, arroba);
+  const dominio = email.slice(arroba);
+  const visible = nombre.slice(0, 1);
+  return `${visible}${'*'.repeat(Math.max(nombre.length - 1, 1))}${dominio}`;
+}
+
+/**
+ * Lee la invitación que hay detrás de un token, sin aceptarla.
+ *
+ * Sirve para la pantalla de aceptación: enseña de qué organización es y con qué
+ * rol, antes de pedir nada. Devuelve `null` cuando el token no existe o ha
+ * caducado, sin distinguir entre las dos cosas.
+ */
+export async function invitacionDelToken(
+  tenantId: string,
+  token: string,
+  now: Date = new Date(),
+): Promise<InvitacionVista | null> {
+  const tokenHash = hashInvitationToken(token);
+  return db().withTenant(tenantId, async (tx) => {
+    const invitation = await tx.invitation.findUnique({
+      where: { tokenHash },
+      include: { tenant: { select: { name: true } } },
+    });
+    if (!invitation) return null;
+    if (invitation.expiresAt.getTime() <= now.getTime()) return null;
+    return {
+      id: invitation.id,
+      tenantName: invitation.tenant.name,
+      role: invitation.role,
+      canViewCompensation: invitation.canViewCompensation,
+      correoOculto: ocultarCorreo(invitation.email),
+      expiresAt: invitation.expiresAt,
+    };
+  });
+}
+
+/**
+ * El correo al que va la invitación, para mandarle el enlace de entrada.
+ *
+ * No sale de aquí hacia ninguna pantalla: lo usa el servidor para decidir a
+ * qué dirección manda el enlace mágico, que es justo lo que evita que la
+ * persona tenga que teclearla y que alguien teclee otra.
+ */
+export async function correoInvitado(
+  tenantId: string,
+  token: string,
+  now: Date = new Date(),
+): Promise<string | null> {
+  const tokenHash = hashInvitationToken(token);
+  return db().withTenant(tenantId, async (tx) => {
+    const invitation = await tx.invitation.findUnique({ where: { tokenHash } });
+    if (!invitation) return null;
+    if (invitation.expiresAt.getTime() <= now.getTime()) return null;
+    return invitation.email;
+  });
+}
+
+/**
+ * Si la invitación que hay abierta en el navegador es para esta dirección.
+ *
+ * Es lo que permite mandar el enlace de entrada a alguien que todavía no tiene
+ * cuenta, sin dejar abierto el formulario de login para mandárselo a cualquiera.
+ * La comprobación se hace dentro del tenant de la invitación, así que no hace
+ * falta buscar por correo entre organizaciones.
+ */
+export async function invitacionEnCursoPara(
+  email: string,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const enCurso = await leerInvitacion();
+  if (enCurso === null) return false;
+  const correo = await correoInvitado(enCurso.tenantId, enCurso.token, now);
+  return correo !== null && correo.toLowerCase() === email.trim().toLowerCase();
+}
+
+/** Una invitación pendiente, tal y como la ve quien administra la organización. */
+export interface InvitacionPendiente {
+  readonly id: string;
+  readonly email: string;
+  readonly role: Role;
+  readonly canViewCompensation: boolean;
+  readonly createdAt: Date;
+  readonly expiresAt: Date;
+  /**
+   * Si ya no vale. Se calcula aquí y no en la pantalla a propósito: mirar el
+   * reloj mientras se pinta deja una pantalla cuyo resultado depende del
+   * momento exacto en que se dibuja, y el linter de React lo prohíbe.
+   */
+  readonly caducada: boolean;
+}
+
+/** Las invitaciones sin aceptar del tenant, de la más reciente a la más vieja. */
+export async function invitacionesPendientes(
+  principal: Principal,
+  now: Date = new Date(),
+): Promise<readonly InvitacionPendiente[]> {
+  return db().withTenant(principal.tenantId, async (tx) => {
+    const filas = await tx.invitation.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        canViewCompensation: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+    });
+    return filas.map((fila) => ({ ...fila, caducada: fila.expiresAt.getTime() <= now.getTime() }));
+  });
+}
+
+/**
+ * Revoca una invitación que todavía no se ha usado.
+ *
+ * Hasta ahora no había forma: un enlace repartido por error seguía valiendo
+ * siete días y no se podía hacer nada. Se borra la fila, que es lo que hace
+ * inservible al token, y queda la entrada de auditoría con quién la revocó.
+ */
+export async function revocarInvitacion(principal: Principal, invitationId: string): Promise<void> {
+  await db().withTenant(principal.tenantId, async (tx) => {
+    const invitation = await tx.invitation.findUnique({ where: { id: invitationId } });
+    if (!invitation) throw new HttpError(404, 'invitation_not_found');
+    await tx.auditLog.create({
+      data: {
+        tenantId: principal.tenantId,
+        actorId: principal.userId,
+        action: 'invitation.revoked',
+        entity: 'invitation',
+        entityId: invitation.id,
+        before: { role: invitation.role, canViewCompensation: invitation.canViewCompensation },
+      },
+    });
+    await tx.invitation.delete({ where: { id: invitation.id } });
+  });
 }
 
 export interface CreatedInvitation {

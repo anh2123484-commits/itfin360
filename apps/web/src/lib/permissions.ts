@@ -81,6 +81,22 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, ReadonlySet<Permission>>> =
   VIEWER: new Set<Permission>(['dashboards:showback']),
 };
 
+/**
+ * El nombre de cada rol en castellano.
+ *
+ * `IT_MANAGER` es el código de la base de datos, no algo que enseñarle a nadie.
+ * Quien recibe una invitación tiene que entender a qué le invitan sin traducir
+ * del inglés ni del guion bajo.
+ */
+export const ETIQUETA_ROL: Readonly<Record<Role, string>> = {
+  OWNER: 'Propietario',
+  FINANCE: 'Finanzas',
+  IT_MANAGER: 'Responsable de IT',
+  PROJECT_MANAGER: 'Jefe de proyecto',
+  CONTRIBUTOR: 'Colaborador',
+  VIEWER: 'Consulta',
+};
+
 /** Lo que el servidor sabe del usuario en el tenant activo. */
 export interface Principal {
   readonly userId: string;

@@ -7,7 +7,17 @@ describe('rutas públicas', () => {
     // El test se escribe a mano a propósito: si alguien añade una ruta pública,
     // tiene que venir aquí y justificarla. Una lista que se autocompleta sola
     // deja de ser un control.
-    expect([...PUBLIC_PATHS]).toEqual(['/login', '/api/auth', '/api/health']);
+    expect([...PUBLIC_PATHS]).toEqual(['/login', '/invitacion', '/api/auth', '/api/health']);
+  });
+
+  it('el enlace de invitación se abre sin sesión, pero la gestión no', () => {
+    // Son dos rutas que se parecen y hacen cosas opuestas. `/invitacion` es el
+    // enlace que recibe quien todavía no tiene cuenta; `/invitaciones` es donde
+    // se crean y se revocan, y eso pide sesión y permiso.
+    expect(esPublica('/invitacion/aceptar')).toBe(true);
+    expect(esPublica('/invitacion/4f0c9f7e-0000-4000-8000-000000000000/token')).toBe(true);
+    expect(esPublica('/invitaciones')).toBe(false);
+    expect(esPublica('/invitaciones/nueva')).toBe(false);
   });
 
   it('no hay alta pública', () => {

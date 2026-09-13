@@ -95,14 +95,15 @@ ni un solo test. Son límites escritos y nunca ejercitados.
 
 ### 3 · Un enlace de invitación filtrado da acceso a la organización
 
-**Estado: la cadena está rota, el enlace sigue siendo mejorable.** Los pasos 1,
-2 y 3 ya no existen: no hay alta pública, y el login con contraseña exige el
-correo verificado. La contraseña se pone desde dentro de la cuenta, que sólo se
-consigue abriendo el enlace que llega al buzón. Queda pendiente lo del propio
-enlace: el token sigue viajando en la ruta, se vuelve a emitir en el query
-string cuando falla, dura siete días y no se puede revocar. Y el enlace mágico
-todavía crea cuenta para cualquier dirección, aunque no haya sido invitada; eso
-no da acceso a ningún tenant ajeno, pero no es lo decidido.
+**Estado: cerrado.** La cadena ya no existe: no hay alta pública, el login con
+contraseña exige el correo verificado, y la contraseña se pone desde dentro de
+una cuenta que sólo se consigue abriendo el enlace del buzón. Del enlace: el
+token pasa a una cookie de media hora en la primera petición y la dirección se
+queda limpia, así que no llega ni al login ni a las pantallas de error; las
+invitaciones se pueden revocar desde `/invitaciones`, con entrada de auditoría;
+y el enlace mágico sólo se manda a quien ya tiene cuenta o tiene una invitación
+abierta para esa misma dirección, lo que de paso cierra el relé de correo del
+punto 4. Queda una decisión abierta, no un fallo: los siete días de validez.
 
 `apps/web/src/lib/rutas-publicas.ts:21`, `apps/web/src/app/api/auth/register/route.ts:8`,
 `apps/web/src/lib/auth/register.ts:39`, `apps/web/src/lib/auth/index.ts:44-57`,
@@ -151,6 +152,10 @@ límite de intentos sigue sin existir.
 Bombardeo de correo: el formulario de enlace mágico dispara un envío por
 petición contra cualquier dirección. Es un relay para spamear a terceros con el
 remitente del producto.
+
+*Estado del bombardeo de correo: cerrado.* El enlace sólo se manda a quien ya
+tiene cuenta o tiene una invitación abierta para esa dirección. Lo demás del
+punto 4 sigue igual: no hay límite de intentos ni registro de los fallos.
 
 Y encima es invisible: `authorize` devuelve nulo en silencio en los cuatro
 caminos de fallo. Sin IP, sin contador, sin evento. Un ataque de credenciales
