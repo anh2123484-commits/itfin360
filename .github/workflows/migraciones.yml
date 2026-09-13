@@ -1,0 +1,81 @@
+name: Migraciones
+
+# Las migraciones salen del build de Vercel y se ejecutan aquí.
+#
+# El motivo es de seguridad, no de comodidad. La credencial de migraciones tiene
+# DDL y salta el aislamiento entre clientes: con ella se pueden leer las filas de
+# cualquier organización, o quitar la política que lo impide. Mientras las
+# migraciones corrieran en el build de Vercel, esa credencial tenía que estar
+# declarada en el entorno de Vercel, y en Vercel el entorno del build es el mismo
+# que el de ejecución: quedaba cargada en cada petición que sirve la aplicación.
+#
+# Aquí vive como secreto del repositorio, sólo la ve este trabajo, y la
+# aplicación se queda únicamente con la credencial de la aplicación, que no
+# puede hacer DDL ni saltarse el aislamiento.
+#
+# ## Lo que hay que saber de este montaje
+#
+# GitHub arranca esto y Vercel arranca su despliegue a la vez, con el mismo
+# empujón a `main`. No hay forma de que uno espere al otro sin meter por medio
+# la API de Vercel. En la práctica la migración termina antes, porque es
+# cuestión de segundos y el build tarda minutos, pero no está garantizado.
+#
+# La consecuencia es que las migraciones tienen que ser compatibles hacia atrás:
+# añadir columnas y tablas, nunca quitarlas en la misma entrega que el código que
+# deja de usarlas. Quitar se hace en una entrega posterior, cuando ya no queda
+# código viejo sirviendo. Es la disciplina normal de desplegar sin parar el
+# servicio, y aquí además es lo que hace que el orden deje de importar.
+
+on:
+  push:
+    branches: [main]
+    # Sólo cuando cambia algo del esquema. Un cambio de texto en una pantalla no
+    # tiene por qué tocar la base de datos.
+    paths:
+      - 'packages/db/prisma/**'
+      - 'packages/db/prisma.config.ts'
+      - '.github/workflows/migraciones.yml'
+  # Y a mano, para poder relanzarla si falla sin tener que inventarse un commit.
+  workflow_dispatch:
+
+concurrency:
+  # Nunca dos migraciones a la vez contra la misma base.
+  group: migraciones-produccion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  desplegar:
+    name: prisma migrate deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Comprobar que el secreto está puesto
+        # Sin esto, `prisma migrate deploy` intentaría conectarse a localhost y
+        # el error hablaría de una conexión rechazada, que no dice lo que pasa.
+        run: |
+          if [ -z "$MIGRATION_DATABASE_URL" ]; then
+            echo "Falta el secreto MIGRATION_DATABASE_URL en el repositorio." >&2
+            exit 1
+          fi
+
+      - name: Aplicar migraciones
+        run: pnpm -w run db:migrate:deploy
