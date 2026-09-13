@@ -147,11 +147,18 @@ export interface InvitacionPendiente {
   readonly canViewCompensation: boolean;
   readonly createdAt: Date;
   readonly expiresAt: Date;
+  /**
+   * Si ya no vale. Se calcula aquí y no en la pantalla a propósito: mirar el
+   * reloj mientras se pinta deja una pantalla cuyo resultado depende del
+   * momento exacto en que se dibuja, y el linter de React lo prohíbe.
+   */
+  readonly caducada: boolean;
 }
 
 /** Las invitaciones sin aceptar del tenant, de la más reciente a la más vieja. */
 export async function invitacionesPendientes(
   principal: Principal,
+  now: Date = new Date(),
 ): Promise<readonly InvitacionPendiente[]> {
   return db().withTenant(principal.tenantId, async (tx) => {
     const filas = await tx.invitation.findMany({
@@ -165,7 +172,7 @@ export async function invitacionesPendientes(
         expiresAt: true,
       },
     });
-    return filas;
+    return filas.map((fila) => ({ ...fila, caducada: fila.expiresAt.getTime() <= now.getTime() }));
   });
 }
 

@@ -34,7 +34,6 @@ async function revocar(formData: FormData) {
 export default async function InvitacionesPage() {
   const principal = await requirePermission('members:invite');
   const pendientes = await invitacionesPendientes(principal);
-  const ahora = Date.now();
 
   return (
     <Shell actual="/invitaciones">
@@ -67,36 +66,33 @@ export default async function InvitacionesPage() {
                 </tr>
               </thead>
               <tbody>
-                {pendientes.map((invitacion) => {
-                  const caducada = invitacion.expiresAt.getTime() <= ahora;
-                  return (
-                    <tr key={invitacion.id} className="border-b">
-                      <td className="p-2">{invitacion.email}</td>
-                      <td className="p-2">
-                        {ETIQUETA_ROL[invitacion.role]}
-                        {invitacion.canViewCompensation ? ' · ve retribución' : ''}
-                      </td>
-                      <td className="text-muted-foreground p-2">{fecha(invitacion.createdAt)}</td>
-                      <td className="p-2">
-                        {caducada ? (
-                          <span className="text-muted-foreground">
-                            caducada el {fecha(invitacion.expiresAt)}
-                          </span>
-                        ) : (
-                          fecha(invitacion.expiresAt)
-                        )}
-                      </td>
-                      <td className="p-2 text-right">
-                        <form action={revocar}>
-                          <input type="hidden" name="id" value={invitacion.id} />
-                          <Button type="submit" variant="outline" size="sm">
-                            Revocar
-                          </Button>
-                        </form>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {pendientes.map((invitacion) => (
+                  <tr key={invitacion.id} className="border-b">
+                    <td className="p-2">{invitacion.email}</td>
+                    <td className="p-2">
+                      {ETIQUETA_ROL[invitacion.role]}
+                      {invitacion.canViewCompensation ? ' · ve retribución' : ''}
+                    </td>
+                    <td className="text-muted-foreground p-2">{fecha(invitacion.createdAt)}</td>
+                    <td className="p-2">
+                      {invitacion.caducada ? (
+                        <span className="text-muted-foreground">
+                          caducada el {fecha(invitacion.expiresAt)}
+                        </span>
+                      ) : (
+                        fecha(invitacion.expiresAt)
+                      )}
+                    </td>
+                    <td className="p-2 text-right">
+                      <form action={revocar}>
+                        <input type="hidden" name="id" value={invitacion.id} />
+                        <Button type="submit" variant="outline" size="sm">
+                          Revocar
+                        </Button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
