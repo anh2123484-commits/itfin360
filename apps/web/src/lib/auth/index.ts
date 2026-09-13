@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { env } from '@/lib/env';
+import { invitacionEnCursoPara } from '@/lib/invitations';
 
 import { identityAdapter } from './adapter';
 import { authConfig } from './config';
@@ -41,6 +42,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth((): NextAuthConfig =
     secret: config.AUTH_SECRET,
     trustHost: true,
     adapter: identityAdapter(db().identity),
+    callbacks: {
+      ...authConfig.callbacks,
+      /**
+       * A quién se le manda el enlace por correo.
+       *
+       * Sólo a quien ya tiene cuenta, o a quien tiene una invitación abierta
+       * para esa misma dirección. Sin esto, el formulario de entrada es un
+       * relé para mandar correo a cualquier dirección del mundo con nuestro
+       * remite, y además crea una cuenta a quien nadie ha invitado.
+       *
+       * Se comprueba sólo al pedir el enlace (`verificationRequest`), no al
+       * consumirlo. Si se comprobara también al consumirlo, abrir el correo
+       * desde el móvil no funcionaría: la invitación vive en una cookie del
+       * navegador desde el que se pidió.
+       *
+       * Ante cualquier error, no se manda. Es preferible que alguien tenga que
+       * repetir a que esto se convierta en una puerta abierta el día que la
+       * base de datos falle.
+       */
+      async signIn({ user, email }) {
+        if (email?.verificationRequest !== true) return true;
+        const direccion = user.email?.trim().toLowerCase();
+        if (direccion === undefined || direccion === '') return false;
+        try {
+          const existente = await db().identity.findUserByEmail(direccion);
+          if (existente !== null) return true;
+          return await invitacionEnCursoPara(direccion);
+        } catch {
+          return false;
+        }
+      },
+    },
     providers: [
       nodemailer,
       Credentials({

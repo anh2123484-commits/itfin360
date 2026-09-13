@@ -161,8 +161,10 @@ describe('POST /api/invitations (members:invite)', () => {
     expect(res.status).toBe(201);
     const body = (await res.json()) as { url: string; invitationId: string };
     expect(body.invitationId).toBe('inv-1');
+    // `/invitacion`, en singular: es la ruta pública que cambia el token por una
+    // cookie. `/invitaciones` es la de administrar, y ésa pide sesión.
     expect(body.url).toMatch(
-      new RegExp(`^http://localhost:3000/invitaciones/${TENANT}/[A-Za-z0-9_-]{43}$`),
+      new RegExp(`^http://localhost:3000/invitacion/${TENANT}/[A-Za-z0-9_-]{43}$`),
     );
     expect(JSON.stringify(body)).not.toContain('nueva@empresa.example');
   });
