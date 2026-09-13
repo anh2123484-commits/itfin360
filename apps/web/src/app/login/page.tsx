@@ -1,6 +1,22 @@
-import { Button } from '@itfin360/ui';
+import { Button, Input } from '@itfin360/ui';
 
 import { signIn } from '@/lib/auth';
+
+/**
+ * Entrada a la aplicación, con dos caminos que no son alternativos sino
+ * consecutivos.
+ *
+ * Arriba, el enlace por correo: es por donde se entra la primera vez, cuando
+ * acabas de recibir una invitación y todavía no tienes contraseña. Abajo, el
+ * correo y la contraseña, que es por donde se entra a partir de entonces.
+ *
+ * Los dos bloques llevan campo de correo, y eso ya se prestó a confusión una
+ * vez: con los recuadros casi invisibles, el segundo campo del bloque de abajo
+ * no se veía y la contraseña acababa escrita en la casilla del correo. De ahí
+ * que cada campo lleve su etiqueta encima, que el orden sea el de la vida real
+ * (primero entrar, después volver a entrar) y que el botón principal sea el de
+ * arriba.
+ */
 
 async function magicLink(formData: FormData) {
   'use server';
@@ -22,58 +38,87 @@ async function password(formData: FormData) {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
+  readonly searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 }) {
   const { callbackUrl = '/', error } = await searchParams;
+
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-8 p-6">
       <h1 className="text-2xl font-semibold">Entrar en ITFin360</h1>
+
       {error ? (
-        <p role="alert" className="text-destructive text-sm">
-          No se ha podido iniciar sesión. Revisa los datos e inténtalo de nuevo.
+        <p
+          role="alert"
+          className="border-destructive/40 text-destructive rounded-md border bg-red-50 p-3 text-sm"
+        >
+          No se ha podido entrar. Comprueba el correo y la contraseña, y recuerda que son dos
+          casillas distintas.
         </p>
       ) : null}
 
-      <form action={magicLink} className="flex flex-col gap-3">
-        <h2 className="font-medium">Enlace por correo</h2>
-        <input type="hidden" name="callbackUrl" value={callbackUrl} />
-        <input
-          className="rounded border px-3 py-2"
-          type="email"
-          name="email"
-          placeholder="tu@empresa.example"
-          autoComplete="email"
-          required
-        />
-        <Button type="submit">Enviarme un enlace</Button>
-      </form>
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="font-medium">Primera vez, o si no tienes contraseña</h2>
+          <p className="text-muted-foreground text-sm">
+            Te mandamos un enlace al correo y entras con él. Es lo que hay que hacer cuando acabas
+            de recibir una invitación.
+          </p>
+        </div>
+        <form action={magicLink} className="flex flex-col gap-3">
+          <input type="hidden" name="callbackUrl" value={callbackUrl} />
+          <label className="flex flex-col gap-1 text-sm font-medium" htmlFor="correo-enlace">
+            Correo
+            <Input
+              id="correo-enlace"
+              type="email"
+              name="email"
+              placeholder="tu@empresa.example"
+              autoComplete="email"
+              required
+            />
+          </label>
+          <Button type="submit">Enviarme un enlace</Button>
+        </form>
+      </section>
 
-      <form action={password} className="flex flex-col gap-3">
-        <h2 className="font-medium">Contraseña</h2>
-        <input type="hidden" name="callbackUrl" value={callbackUrl} />
-        <input
-          className="rounded border px-3 py-2"
-          type="email"
-          name="email"
-          placeholder="tu@empresa.example"
-          autoComplete="email"
-          required
-        />
-        <input
-          className="rounded border px-3 py-2"
-          type="password"
-          name="password"
-          autoComplete="current-password"
-          required
-        />
-        <Button type="submit" variant="outline">
-          Entrar
-        </Button>
-        <p className="text-muted-foreground text-sm">
-          La contraseña se pone desde dentro de la cuenta. Si todavía no tienes ninguna, entra con
-          el enlace por correo.
-        </p>
-      </form>
+      <hr className="border-t" />
+
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="font-medium">Ya tengo contraseña</h2>
+          <p className="text-muted-foreground text-sm">
+            La contraseña se pone desde dentro de la cuenta, en «Cuenta», después de haber entrado
+            alguna vez con el enlace.
+          </p>
+        </div>
+        <form action={password} className="flex flex-col gap-3">
+          <input type="hidden" name="callbackUrl" value={callbackUrl} />
+          <label className="flex flex-col gap-1 text-sm font-medium" htmlFor="correo-contrasena">
+            Correo
+            <Input
+              id="correo-contrasena"
+              type="email"
+              name="email"
+              placeholder="tu@empresa.example"
+              autoComplete="email"
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium" htmlFor="contrasena">
+            Contraseña
+            <Input
+              id="contrasena"
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              required
+            />
+          </label>
+          <Button type="submit" variant="outline">
+            Entrar
+          </Button>
+        </form>
+      </section>
 
       <p className="text-muted-foreground text-sm">
         ITFin360 funciona por invitación. Si tu departamento ya lo usa, pide a quien lo administra
