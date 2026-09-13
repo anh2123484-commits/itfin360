@@ -1,4 +1,4 @@
-import { Button } from '@itfin360/ui';
+import { Button, Input } from '@itfin360/ui';
 import { redirect } from 'next/navigation';
 
 import { Shell } from '@/components/shell';
@@ -74,30 +74,25 @@ export default async function ContrasenaPage({
         ) : null}
 
         <form action={guardar} className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm font-medium" htmlFor="actual">
             Contraseña actual
-            <input
-              className="rounded border px-3 py-2"
-              type="password"
-              name="actual"
-              autoComplete="current-password"
-            />
-            <span className="text-muted-foreground text-xs">
+            <Input id="actual" type="password" name="actual" autoComplete="current-password" />
+            <span className="text-muted-foreground text-xs font-normal">
               Déjala vacía si todavía no tienes ninguna.
             </span>
           </label>
 
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm font-medium" htmlFor="nueva">
             Contraseña nueva
-            <input
-              className="rounded border px-3 py-2"
+            <Input
+              id="nueva"
               type="password"
               name="nueva"
               minLength={12}
               autoComplete="new-password"
               required
             />
-            <span className="text-muted-foreground text-xs">
+            <span className="text-muted-foreground text-xs font-normal">
               Doce caracteres o más. Una frase que recuerdes vale más que ocho símbolos raros.
             </span>
           </label>
