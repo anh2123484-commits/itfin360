@@ -48,6 +48,10 @@ CodeQL sobre TypeScript, Dependabot de dependencias y de acciones, secret scanni
 Registro central de campos personales (qué dato, base legal, retención, ruta de borrado). Helper de cifrado de campo reutilizable, no acoplado a `CompensationRecord`. Redacción de PII en el logger por lista de permitidos, no por lista de bloqueados. Job de purga por retención.
 *Aceptación:* un modelo con un campo marcado como personal sin retención declarada falla el test del registro; el logger, ante un objeto con un campo personal, emite el identificador y nunca el valor; la purga borra un registro caducado y deja constancia en `AuditLog`.
 
+**F0-11 · Recuperar el acceso cuando se olvida la contraseña** · S · Dep: F0-06
+El camino ya existe pero está escondido: quien olvida la contraseña pide un enlace en el bloque de arriba del login, entra con él y la cambia desde «Cuenta». Nadie lo deduce, porque la pantalla no lo dice y el usuario busca el «he olvidado mi contraseña» de siempre. Falta ese enlace debajo del formulario de contraseña, que lleve al bloque del enlace mágico con el correo ya escrito, y una frase que explique qué va a pasar. Sin endpoint nuevo ni token nuevo: se reutiliza el enlace mágico, que es lo que evita tener dos formas distintas de entrar y dos formas distintas de equivocarse.
+*Aceptación:* desde el login, sin saber la contraseña, se llega a tener una nueva sin que nadie tenga que explicar el procedimiento; el enlace no revela si la dirección existe o no.
+
 ---
 
 ## Fase 1 · Motor de cálculo
