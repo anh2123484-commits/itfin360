@@ -5,17 +5,39 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 
+import { semaforo } from '@/lib/concurrencia';
+
+/**
+ * Cuántas derivaciones de contraseña se permiten a la vez, y cuánto se espera
+ * turno antes de rendirse.
+ *
+ * Cada una reserva unos 32 MB por los parámetros de scrypt de más abajo. Cuatro
+ * a la vez son 128 MB, que caben de sobra. Sin tope, unas decenas de peticiones
+ * simultáneas dejan sin memoria al proceso, y para eso no hace falta acertar
+ * ninguna contraseña: basta con mandar intentos.
+ *
+ * Cuatro segundos de espera porque pasado ese punto vale más decir que no que
+ * dejar la petición colgada mientras se acumulan las siguientes.
+ */
+const MAXIMO_A_LA_VEZ = 4;
+const ESPERA_MAXIMA_MS = 4_000;
+
+const turnoScrypt = semaforo(MAXIMO_A_LA_VEZ, ESPERA_MAXIMA_MS);
+
 function scrypt(
   password: string,
   salt: Buffer,
   keyLength: number,
   options: ScryptOptions,
 ): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    scryptCallback(password, salt, keyLength, options, (error, derived) =>
-      error ? reject(error) : resolve(derived),
-    );
-  });
+  return turnoScrypt.ejecutar(
+    () =>
+      new Promise((resolve, reject) => {
+        scryptCallback(password, salt, keyLength, options, (error, derived) =>
+          error ? reject(error) : resolve(derived),
+        );
+      }),
+  );
 }
 
 const KEY_LENGTH = 64;

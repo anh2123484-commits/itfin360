@@ -134,6 +134,17 @@ reparta él por el canal que quiera.
 
 ### 4 · El login no tiene límite de intentos y los fallos no se registran
 
+**Estado: a medias, y lo que falta necesita dónde guardarlo.** El agotamiento de
+memoria está cerrado: las derivaciones de contraseña pasan por un semáforo de
+cuatro a la vez, así que lo que se puede pedir de golpe tiene techo, y una
+dirección bloqueada ni siquiera llega a derivar. El bombardeo de correo también,
+por lo del punto 3. Hay un control de intentos (cinco fallos en quince minutos,
+quince de bloqueo) y cada intento deja una línea en el registro con un hash de
+la dirección, nunca la dirección. Lo que falta: ese control vive en la memoria
+de cada instancia, y en Vercel hay varias, así que quien reparta los intentos se
+lo salta; y el registro se va con los logs en lugar de quedarse. Las dos cosas
+piden una tabla con su política de retención, que va con el punto 6.
+
 `apps/web/src/lib/auth/index.ts:44-57`, y la ausencia de cualquier limitador en
 todo el repositorio.
 
