@@ -20,10 +20,12 @@ const credentialsSchema = z.object({
  * Auth.js completo (runtime Node): magic link por email y contraseña.
  *
  * - Magic link (`Nodemailer`): Auth.js crea el usuario si no existe y marca
- *   `emailVerified` al consumir el enlace.
- * - Contraseña (`Credentials`): sólo entra quien ya tiene `passwordHash`
- *   (registro en `POST /api/auth/register`). Cualquier fallo devuelve `null`,
- *   sin distinguir «no existe» de «contraseña incorrecta».
+ *   `emailVerified` al consumir el enlace. Es la única forma que hay de
+ *   demostrar que el buzón es tuyo.
+ * - Contraseña (`Credentials`): entra quien tiene `passwordHash` **y** el
+ *   correo verificado. La contraseña se pone desde dentro de la cuenta, en
+ *   `/cuenta/contrasena`. Cualquier fallo devuelve `null`, sin distinguir «no
+ *   existe» de «contraseña incorrecta».
  */
 export const { handlers, auth, signIn, signOut } = NextAuth((): NextAuthConfig => {
   const config = env();
@@ -52,6 +54,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth((): NextAuthConfig =
           if (!(await verifyPassword(parsed.data.password, stored.hash))) return null;
           const user = await identity.findUserById(stored.id);
           if (!user) return null;
+          // Sin correo verificado no se entra, aunque la contraseña sea buena.
+          // Es lo que impide que alguien ponga una contraseña sobre el correo de
+          // otra persona y se quede dentro de su cuenta el día que ella entre
+          // por el enlace. Hoy la contraseña sólo se puede poner desde dentro de
+          // una cuenta ya verificada, así que esta comprobación es la red de
+          // seguridad de la de allí, no la única.
+          if (user.emailVerified === null) return null;
           return { id: user.id, email: user.email, name: user.name };
         },
       }),

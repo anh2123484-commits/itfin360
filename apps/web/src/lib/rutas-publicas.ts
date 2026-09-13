@@ -13,9 +13,9 @@
  */
 
 export const PUBLIC_PATHS: readonly string[] = [
-  // Entrada y alta.
+  // Entrada. Alta no hay: una cuenta sólo nace de una invitación, y la
+  // contraseña se pone desde dentro, en `/cuenta/contrasena`, con sesión.
   '/login',
-  '/registro',
   // Callbacks de NextAuth: el enlace mágico llega sin sesión, por definición.
   '/api/auth',
   // Señal de vida del proceso. Tiene que responder sin sesión o la sonda

@@ -95,6 +95,15 @@ ni un solo test. Son límites escritos y nunca ejercitados.
 
 ### 3 · Un enlace de invitación filtrado da acceso a la organización
 
+**Estado: la cadena está rota, el enlace sigue siendo mejorable.** Los pasos 1,
+2 y 3 ya no existen: no hay alta pública, y el login con contraseña exige el
+correo verificado. La contraseña se pone desde dentro de la cuenta, que sólo se
+consigue abriendo el enlace que llega al buzón. Queda pendiente lo del propio
+enlace: el token sigue viajando en la ruta, se vuelve a emitir en el query
+string cuando falla, dura siete días y no se puede revocar. Y el enlace mágico
+todavía crea cuenta para cualquier dirección, aunque no haya sido invitada; eso
+no da acceso a ningún tenant ajeno, pero no es lo decidido.
+
 `apps/web/src/lib/rutas-publicas.ts:21`, `apps/web/src/app/api/auth/register/route.ts:8`,
 `apps/web/src/lib/auth/register.ts:39`, `apps/web/src/lib/auth/index.ts:44-57`,
 `apps/web/src/lib/invitations.ts:102`
@@ -135,8 +144,9 @@ freno es el coste de scrypt.
 Agotamiento de memoria: cada intento reserva unos 32 MB por los parámetros de
 scrypt (`password.ts:22`). Unas decenas de peticiones concurrentes con
 contraseñas cualesquiera tumban el proceso sin necesidad de acertar ninguna.
-`/api/auth/register` es peor, porque calcula el hash antes de mirar si el usuario
-existe (`register.ts:28`).
+`/api/auth/register` era peor, porque calculaba el hash antes de mirar si el
+usuario existía; esa puerta ya no está, pero la del login sigue abierta y el
+límite de intentos sigue sin existir.
 
 Bombardeo de correo: el formulario de enlace mágico dispara un envío por
 petición contra cualquier dirección. Es un relay para spamear a terceros con el
@@ -323,6 +333,16 @@ escaneo de secretos, ni `pnpm audit`. Es la tarea F0-09, de fase cero, pendiente
 mientras el producto ya está desplegado. Y las acciones están fijadas por etiqueta
 móvil (`@v4`), no por SHA, lo que ya ha sido vector de ataque real en otros
 proyectos.
+
+*Estado: cerrado.* Dependabot y CodeQL están en `.github/dependabot.yml` y
+`.github/workflows/codeql.yml`, y CodeQL corre en cada PR y los lunes. El grafo
+de dependencias, las alertas, las actualizaciones de seguridad, el escaneo de
+secretos y la protección de push están activados en los ajustes del repositorio,
+que es donde viven: no son código.
+
+Queda pendiente fijar las acciones por SHA. Conviene hacerlo ahora que
+Dependabot las vigila, porque es él quien mantiene el SHA al día; sin eso se
+congelan en una versión vieja, que es peor que la etiqueta móvil.
 
 **No hay observabilidad.** Todo el registro del sistema son cinco `console` con
 una cadena de texto. Sin nivel, sin JSON, sin identificador de petición, sin

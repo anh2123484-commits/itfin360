@@ -7,7 +7,15 @@ describe('rutas públicas', () => {
     // El test se escribe a mano a propósito: si alguien añade una ruta pública,
     // tiene que venir aquí y justificarla. Una lista que se autocompleta sola
     // deja de ser un control.
-    expect([...PUBLIC_PATHS]).toEqual(['/login', '/registro', '/api/auth', '/api/health']);
+    expect([...PUBLIC_PATHS]).toEqual(['/login', '/api/auth', '/api/health']);
+  });
+
+  it('no hay alta pública', () => {
+    // Estuvo abierta, y por ahí se podía poner una contraseña sobre el correo
+    // de otra persona. Ahora una cuenta sólo nace de una invitación y la
+    // contraseña se pone desde dentro, con sesión.
+    expect(esPublica('/registro')).toBe(false);
+    expect(esPublica('/cuenta/contrasena')).toBe(false);
   });
 
   it('el healthcheck responde sin sesión', () => {

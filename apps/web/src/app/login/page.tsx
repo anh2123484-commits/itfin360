@@ -1,5 +1,4 @@
 import { Button } from '@itfin360/ui';
-import Link from 'next/link';
 
 import { signIn } from '@/lib/auth';
 
@@ -70,10 +69,16 @@ export default async function LoginPage({
         <Button type="submit" variant="outline">
           Entrar
         </Button>
-        <Link className="text-muted-foreground text-sm underline" href="/registro">
-          Crear cuenta con contraseña
-        </Link>
+        <p className="text-muted-foreground text-sm">
+          La contraseña se pone desde dentro de la cuenta. Si todavía no tienes ninguna, entra con
+          el enlace por correo.
+        </p>
       </form>
+
+      <p className="text-muted-foreground text-sm">
+        ITFin360 funciona por invitación. Si tu departamento ya lo usa, pide a quien lo administra
+        que te invite y te llegará el enlace al correo.
+      </p>
     </main>
   );
 }

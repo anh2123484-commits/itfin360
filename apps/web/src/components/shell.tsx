@@ -78,6 +78,13 @@ export async function Shell({
                 {activo.tenantName} · {activo.role}
               </span>
             ) : null}
+            <Link
+              href="/cuenta/contrasena"
+              aria-current={actual === '/cuenta/contrasena' ? 'page' : undefined}
+              className="text-muted-foreground hover:bg-accent rounded-md px-3 py-1.5 text-sm"
+            >
+              Cuenta
+            </Link>
             <form action={salir}>
               <Button type="submit" variant="outline" size="sm">
                 Salir
