@@ -127,12 +127,23 @@ Las dos tienen que dar `true`.
    busca la dependencia de Next en el `package.json` de la carpeta raíz y allí
    no está, está en el de la aplicación.
 3. Framework Preset: **Next.js**. Output Directory: `.next`.
-4. No despliegues todavía: primero las variables.
+4. **Settings → Functions → Function Region**: `Frankfurt (fra1)`, la misma
+   región que la base de datos. Por defecto Vercel las pone en Washington, y
+   entonces los datos personales se procesan fuera de la UE aunque reposen
+   dentro. El plan gratuito sólo permite una región. Un cambio aquí no tiene
+   efecto hasta el siguiente despliegue.
+5. No despliegues todavía: primero las variables.
 
-El `vercel.json` de la raíz del repositorio **manda sobre lo que pongas en el
-panel**. Si cambias un comando en la interfaz y no cambia nada en el build, es
-esto. Los comandos que trae usan `pnpm -w` para correr desde la raíz del
-workspace; un `cd ../..` delante no sirve, Vercel se lo quita.
+Cuidado con dónde vive la configuración del build. Con el **Root Directory** en
+`apps/web`, Vercel busca el `vercel.json` ahí dentro, no en la raíz del
+repositorio: el de la raíz **no se lee**, y lo que manda son los comandos
+escritos en el panel con el interruptor `Override` encendido. Los dos sitios
+tienen que decir lo mismo, y el que hay que cambiar de verdad es el panel. Lo
+descubrimos al sacar las migraciones del build, con la corrección hecha en el
+fichero y el panel todavía llamando a `db:migrate:deploy`.
+
+Los comandos usan `pnpm -w` para correr desde la raíz del workspace; un `cd ../..`
+delante no sirve, Vercel se lo quita.
 
 ## 7 · Variables de entorno en Vercel
 

@@ -28,8 +28,18 @@ Los puntos 1, 2 y 5, más las longitudes que la importación no validaba. Es el
 primer paso del orden que hay al final del documento: lo que se arregla con una
 PR pequeña y quita un riesgo grande. Cada punto lleva anotado su estado.
 
-El veredicto no cambia: siguen bloqueando los otros siete, y el que más pesa es
-la cadena de la invitación.
+### Dónde está cada punto a 13 de septiembre
+
+Cerrados: 1, 2, 3, 5, 8 y 9. El 4 está cerrado a medias: el login ya no se deja
+tumbar por memoria ni sirve de relé de correo, y hay límite de intentos y
+registro de eventos, pero el contador vive en la memoria de cada instancia y los
+eventos se van con el proceso; falta la parte compartida y duradera.
+
+Abiertos: 4 (lo que queda), 6, 7 y 10.
+
+El veredicto no cambia. Siguen bloqueando cuatro, y el que más pesa ahora es el
+6, la capa de ciclo de vida del dato personal, que no existe y que arrastra la
+parte duradera del 4 y buena parte del 10.
 
 ---
 
@@ -244,6 +254,20 @@ despliegue arrancan a la vez y nadie garantiza el orden, así que las migracione
 tienen que ser compatibles hacia atrás: se añade en una entrega y se quita en la
 siguiente, cuando ya no queda código viejo sirviendo.
 
+La variable `MIGRATION_DATABASE_URL` ya no está declarada en Vercel: se borró a
+mano el 13 de septiembre, después de ver el flujo de migraciones acabar en verde
+con el secreto del repositorio.
+
+Al hacerlo salió otra cosa que no estaba en el informe original y que conviene
+dejar escrita. El `Root Directory` del proyecto de Vercel es `apps/web`, y
+`vercel.json` está en la raíz del repositorio, así que Vercel no lo lee: el
+comando de build que se ejecuta de verdad es el que hay escrito en el panel con
+el interruptor `Override` encendido, y ahí seguía la llamada a las migraciones.
+Tocar sólo `vercel.json` no habría cambiado nada, y el primer despliegue después
+de borrar la variable habría fallado. El comando del panel se corrigió a mano
+para que diga lo mismo que el fichero. Mientras la configuración viva en dos
+sitios y sólo mande uno, esto vuelve a pasar; queda anotado como mejora.
+
 `vercel.json:5` y `docs/06-despliegue.md:144`
 
 El comando de build ejecuta las migraciones, lo que obliga a declarar
@@ -259,19 +283,31 @@ alcanzable desde la aplicación, y ahí lo es. Una dependencia maliciosa que lea
 Añadido: los despliegues de vista previa usan las mismas variables, así que cada
 rama lee y escribe contra la base de producción.
 
-### 9 · El cómputo probablemente sale de la Unión Europea, y nadie lo ha comprobado
+### 9 · El cómputo salía de la Unión Europea, y nadie lo había comprobado
+
+**Estado: cerrado.** Comprobado el 13 de septiembre: la región de funciones del
+proyecto estaba en `iad1`, Washington. O sea que no era una sospecha, era el
+caso. Se cambió a `fra1`, Fráncfort, la misma región donde está la base de datos
+(`eu-central-1`), y se desplegó de nuevo para que el cambio tuviera efecto.
+
+Con eso el dato ni reposa ni se procesa fuera de la UE, y de paso cada consulta
+deja de cruzar el Atlántico dos veces.
+
+Lo que queda de este punto no es técnico: el plan gratuito de Vercel permite una
+sola región, así que no hay margen para equivocarse al tocarla, y la elección hay
+que dejarla escrita en el registro de tratamientos del punto 10 junto con la
+región de Supabase.
 
 `vercel.json:1-7`, `docs/06-despliegue.md:122-160`
 
 La base de datos está en Fráncfort por decisión consciente y escrita. El cómputo
-no tiene región declarada en ninguna parte: `vercel.json` no fija `regions`, y
+no tenía región declarada en ninguna parte: `vercel.json` no fija `regions`, y
 las funciones de Vercel salen por defecto en Washington salvo que se diga otra
 cosa.
 
-Los datos reposan en la UE; se procesan probablemente fuera. Eso no es
-necesariamente ilegal, pero es una transferencia internacional que nadie ha
-documentado ni evaluado, y contradice la única frase que hay escrita sobre el
-asunto.
+Los datos reposaban en la UE y se procesaban fuera. Eso no es necesariamente
+ilegal, pero es una transferencia internacional que nadie había documentado ni
+evaluado, y contradecía la única frase que había escrita sobre el asunto.
 
 ### 10 · No hay registro de encargados, ni contratos, ni aviso de privacidad
 
