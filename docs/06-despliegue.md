@@ -141,13 +141,21 @@ workspace; un `cd ../..` delante no sirve, Vercel se lo quita.
 | Variable                 | Valor                                                                                                                    |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | `DATABASE_URL`           | Pooler, puerto **6543**, usuario `itfin360_app.<ref>`, con `?pgbouncer=true&connection_limit=1` al final                   |
-| `MIGRATION_DATABASE_URL` | Pooler, puerto **5432**, usuario `itfin360_migrator.<ref>`                                                                |
 | `AUTH_SECRET`            | El del paso 2                                                                                                             |
 | `APP_URL`                | `https://<tu-dominio>.vercel.app`                                                                                         |
 | `EMAIL_SERVER`           | SMTP del enlace mágico, p. ej. `smtp://resend:<api-key>@smtp.resend.com:587`                                               |
 | `EMAIL_FROM`             | `ITFin360 <no-reply@tu-dominio>`                                                                                          |
 
 `ADMIN_DATABASE_URL` **no** va aquí. Si aparece, algo se ha hecho mal.
+
+`MIGRATION_DATABASE_URL` **tampoco**, y esto cambió sobre la marcha. Esa
+credencial hace DDL y se salta el aislamiento entre clientes: con ella se leen
+las filas de cualquier organización, o se quita la política que lo impide. En
+Vercel el entorno del build es el mismo que el de ejecución, así que declararla
+allí la dejaba cargada en cada petición que sirve la aplicación. Ahora las
+migraciones corren en GitHub Actions (`.github/workflows/migraciones.yml`) y la
+credencial vive como secreto del repositorio. Si ves `MIGRATION_DATABASE_URL` en
+Vercel, bórrala.
 
 **`NODE_ENV` tampoco.** Vercel ya la pone. Declararla a mano como `production`
 hace que pnpm se salte las `devDependencies`, y con ellas desaparecen `turbo`,

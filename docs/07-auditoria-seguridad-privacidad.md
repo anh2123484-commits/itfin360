@@ -236,6 +236,14 @@ afirma una garantía que no existe, y alguien va a confiar en ella.
 
 ### 8 · La credencial que salta el aislamiento vive en el entorno de ejecución
 
+**Estado: cerrado.** Las migraciones salen del build de Vercel y pasan a GitHub
+Actions (`.github/workflows/migraciones.yml`), donde la credencial vive como
+secreto del repositorio. La aplicación se queda sólo con la de la aplicación,
+que no hace DDL ni se salta el aislamiento. El precio es que la migración y el
+despliegue arrancan a la vez y nadie garantiza el orden, así que las migraciones
+tienen que ser compatibles hacia atrás: se añade en una entrega y se quita en la
+siguiente, cuando ya no queda código viejo sirviendo.
+
 `vercel.json:5` y `docs/06-despliegue.md:144`
 
 El comando de build ejecuta las migraciones, lo que obliga a declarar
