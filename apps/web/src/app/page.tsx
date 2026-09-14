@@ -10,6 +10,7 @@ import {
   requireUser,
   switchActiveTenant,
 } from '@/lib/tenant-context';
+import { puedeCrearTenant } from '@/lib/tenants';
 
 async function cambiarTenant(formData: FormData) {
   'use server';
@@ -18,8 +19,29 @@ async function cambiarTenant(formData: FormData) {
 }
 
 export default async function HomePage() {
-  const { memberships } = await requireUser();
-  if (memberships.length === 0) redirect('/tenants/nuevo');
+  const { userId, memberships } = await requireUser();
+  const puedeCrear = await puedeCrearTenant(userId);
+
+  // Antes, a quien no pertenecía a ninguna organización se le mandaba a
+  // crearse una. Con el alta cerrada eso ya no tiene sentido: lo que le pasa a
+  // esa persona es que su invitación no está aceptada o se la revocaron, y lo
+  // que necesita es que alguien se lo diga, no un formulario que le va a dar
+  // un 403.
+  if (memberships.length === 0) {
+    if (puedeCrear) redirect('/tenants/nuevo');
+    return (
+      <Shell actual="/">
+        <div className="flex max-w-2xl flex-col gap-3">
+          <h2 className="font-medium">No perteneces a ninguna organización</h2>
+          <p className="text-muted-foreground text-sm">
+            Tu cuenta existe, pero todavía no está dentro de ninguna. Pide a quien administra la
+            organización que te invite: te llegará un enlace al correo y con él entras.
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
   const active = pickActiveMembership(memberships, await readActiveTenantCookie());
 
   return (
@@ -51,9 +73,11 @@ export default async function HomePage() {
               Cambiar
             </Button>
           </form>
-          <Link className="text-sm underline" href="/tenants/nuevo">
-            Crear otro tenant
-          </Link>
+          {puedeCrear ? (
+            <Link className="text-sm underline" href="/tenants/nuevo">
+              Crear otra organización
+            </Link>
+          ) : null}
         </section>
 
         {active ? (
