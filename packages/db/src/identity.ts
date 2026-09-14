@@ -133,6 +133,21 @@ export function identityOperations(client: IdentityClient) {
       return deleted.count === 0 ? null : found;
     },
 
+    /**
+     * Borra los tokens cuya caducidad ya pasó y devuelve cuántos.
+     *
+     * Cada fila lleva la dirección de correo de quien pidió el enlace. Un token
+     * caducado no sirve para nada y ese correo no tiene por qué seguir ahí.
+     * `verification_token` es una tabla global sin RLS, así que esto no puede
+     * alcanzar datos de ningún tenant.
+     */
+    deleteExpiredVerificationTokens: async (before: Date): Promise<number> => {
+      const { count } = await client.verificationToken.deleteMany({
+        where: { expires: { lt: before } },
+      });
+      return count;
+    },
+
     provisionTenant: (input: ProvisionTenantInput) => provisionTenant(client, input),
     userMemberships: (userId: string) => userMemberships(client, userId),
   };
