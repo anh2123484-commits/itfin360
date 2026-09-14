@@ -10,7 +10,7 @@ señalados. Lo que se ha medido, se dice que se ha medido y con qué resultado.
 ## Veredicto
 
 **Hoy no se pueden meter datos reales de clientes.** No por la arquitectura, que
-es mejor de lo normal a esta altura, sino por diez cosas concretas que se listan
+es mejor de lo normal a esta altura, sino por las cosas concretas que se listan
 abajo y que van desde dos formas de tumbar el servidor con un fichero de 60 KB
 hasta la ausencia total de la capa de ciclo de vida del dato personal.
 
@@ -30,15 +30,19 @@ PR pequeña y quita un riesgo grande. Cada punto lleva anotado su estado.
 
 ### Dónde está cada punto a 13 de septiembre
 
-Cerrados: 1, 2, 3, 5, 8 y 9. El 4 está cerrado a medias: el login ya no se deja
-tumbar por memoria ni sirve de relé de correo, y hay límite de intentos y
-registro de eventos, pero el contador vive en la memoria de cada instancia y los
-eventos se van con el proceso; falta la parte compartida y duradera.
+Cerrados: 1, 2, 3, 5, 8 y 9.
 
-Abiertos: 4 (lo que queda), 6, 7 y 10.
+A medias el 4 y el 6. El login ya no se deja tumbar por memoria ni sirve de relé
+de correo, y hay límite de intentos y registro de eventos, pero el contador vive
+en la memoria de cada instancia y los eventos se van con el proceso. Del 6 están
+tomadas las dos decisiones que lo bloqueaban y se purgan ya los tokens de
+verificación caducados; falta todo lo que lleva migración.
 
-El veredicto no cambia. Siguen bloqueando cuatro, y el que más pesa ahora es el
-6, la capa de ciclo de vida del dato personal, que no existe y que arrastra la
+Abiertos: 7, 10 y 11, más lo que queda del 4 y del 6. El 11 apareció el mismo
+día 13 y es el más urgente de todos, porque deja publicado el código que ya
+hemos arreglado.
+
+El veredicto no cambia. El que más pesa sigue siendo el 6, porque arrastra la
 parte duradera del 4 y buena parte del 10.
 
 ---
@@ -208,6 +212,27 @@ despliegue lo reconoce.
 
 ### 6 · La capa de ciclo de vida del dato personal no existe
 
+**Estado: abierto, con dos cosas menos.** El 13 de septiembre se tomaron las dos
+decisiones que bloqueaban todo lo demás, y están escritas en
+`docs/03-arquitectura-y-datos.md`: los plazos de retención por tipo de dato, y
+qué pasa cuando un cliente se va (margen de 30 días y borrado en cascada, sin
+anonimizar ni conservar agregados). Sin esas dos, la migración no se podía ni
+empezar.
+
+Y se cerró el trozo que no necesitaba tocar la base de datos: los tokens de
+verificación caducados ya se borran solos (`apps/web/src/lib/retencion.ts`),
+aprovechando el momento en que se pide un enlace nuevo. Esa tabla es global, sin
+RLS, y guardaba la dirección de correo de todo el que alguna vez pidió entrar,
+para siempre.
+
+Lo que sigue abierto es lo que lleva migración: retención declarada modelo a
+modelo, `deletedAt`, baja de tenant, exportación de los datos de un interesado y
+purga de las invitaciones caducadas. Las invitaciones no se han podido incluir
+hoy porque llevan RLS: el rol de la aplicación sólo ve las de su tenant, así que
+barrerlas pide una función `SECURITY DEFINER` y eso es migración.
+
+El texto original del hallazgo, tal y como se escribió:
+
 No hay política de retención. Ningún modelo del esquema declara periodo ni ruta
 de borrado, lo que incumple la regla dura 15 de `AGENTS.md` en el cien por cien
 de las tablas.
@@ -281,7 +306,8 @@ alcanzable desde la aplicación, y ahí lo es. Una dependencia maliciosa que lea
 `process.env` obtiene acceso a los datos de todos los clientes.
 
 Añadido: los despliegues de vista previa usan las mismas variables, así que cada
-rama lee y escribe contra la base de producción.
+rama lee y escribe contra la base de producción. Ver el punto 11, que es la
+consecuencia de esto y se descubrió después.
 
 ### 9 · El cómputo salía de la Unión Europea, y nadie lo había comprobado
 
@@ -325,6 +351,39 @@ el sistema y a la que nadie informa de nada.
 Lo que sí está limpio: sólo hay dos cookies, las dos estrictamente necesarias, y
 cero analítica. No hace falta banner de cookies porque no hay nada que
 consentir. Eso está bien resuelto.
+
+### 11 · Los despliegues antiguos siguen online sirviendo el código que se quitó
+
+**Añadido el 13 de septiembre, encontrado por Anh abriendo una URL vieja.**
+
+Vercel guarda cada despliegue con su propia dirección y no la retira nunca. Esas
+direcciones usan las mismas variables de entorno que producción, o sea la misma
+base de datos, los mismos usuarios y los mismos datos.
+
+La consecuencia es que quitar algo del código no lo quita del aire. El alta
+pública de cuentas se retiró esta mañana y ya no existe en `main`, pero sigue
+funcionando en cualquier despliegue anterior a ese cambio, contra la base de
+producción: quien tenga una de esas direcciones se crea una cuenta sin que nadie
+lo autorice. Lo mismo vale para cualquier otro arreglo de seguridad de hoy: el
+token de invitación en la URL, el login sin verificar el correo, el registro sin
+límite de intentos. Todo eso sigue servido en alguna dirección.
+
+Las direcciones no se adivinan, pero tampoco son secretas: salen en los
+comentarios de las pull requests, en el panel de Vercel y en los registros del
+proveedor. Y la política de retención del proyecto las guarda 30 días.
+
+Qué hay que hacer, por orden:
+
+1. Activar la protección de los despliegues de vista previa, para que exijan
+   estar autenticado en Vercel. Es un interruptor en **Settings → Deployment
+   Protection**, y cierra el agujero para todo lo pasado y lo futuro de golpe.
+2. Dejar de darles las credenciales de producción. Una base de datos aparte para
+   vista previa, con datos falsos. Es más trabajo y va con la capa de dato
+   personal, pero es lo correcto.
+3. Borrar los despliegues anteriores al arreglo del alta pública.
+
+Mientras el punto 1 no esté, cada arreglo de seguridad que hagamos deja su propia
+versión vulnerable publicada y accesible.
 
 ---
 

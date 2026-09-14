@@ -46,11 +46,24 @@ CodeQL sobre TypeScript, Dependabot de dependencias y de acciones, secret scanni
 
 **F0-10 · Privacidad por defecto: base técnica** · M · Dep: F0-07
 Registro central de campos personales (qué dato, base legal, retención, ruta de borrado). Helper de cifrado de campo reutilizable, no acoplado a `CompensationRecord`. Redacción de PII en el logger por lista de permitidos, no por lista de bloqueados. Job de purga por retención.
+Los plazos y la baja de cliente están decididos y escritos en la sección 3 de `docs/03-arquitectura-y-datos.md`: no hay que volver a discutirlos, hay que implementarlos. Incluye `deletedAt`, la baja de tenant con margen de 30 días y la exportación de los datos de un interesado. Los tokens de verificación caducados ya se purgan desde `apps/web/src/lib/retencion.ts`; las invitaciones caducadas no, porque llevan RLS y hace falta una función `SECURITY DEFINER`.
 *Aceptación:* un modelo con un campo marcado como personal sin retención declarada falla el test del registro; el logger, ante un objeto con un campo personal, emite el identificador y nunca el valor; la purga borra un registro caducado y deja constancia en `AuditLog`.
 
 **F0-11 · Recuperar el acceso cuando se olvida la contraseña** · S · Dep: F0-06
 El camino ya existe pero está escondido: quien olvida la contraseña pide un enlace en el bloque de arriba del login, entra con él y la cambia desde «Cuenta». Nadie lo deduce, porque la pantalla no lo dice y el usuario busca el «he olvidado mi contraseña» de siempre. Falta ese enlace debajo del formulario de contraseña, que lleve al bloque del enlace mágico con el correo ya escrito, y una frase que explique qué va a pasar. Sin endpoint nuevo ni token nuevo: se reutiliza el enlace mágico, que es lo que evita tener dos formas distintas de entrar y dos formas distintas de equivocarse.
 *Aceptación:* desde el login, sin saber la contraseña, se llega a tener una nueva sin que nadie tenga que explicar el procedimiento; el enlace no revela si la dirección existe o no.
+
+**F0-12 · Crear organización deja de ser libre** · M · Dep: F0-06
+Hoy cualquiera que tenga cuenta puede crear organizaciones sin límite: el enlace «Crear otro tenant» está en la portada y `/tenants/nuevo` sólo pide estar autenticado. Mientras el producto sea privado eso significa que quien entre por una invitación a un tenant puede montarse los suyos propios al margen. Hace falta que el alta de organización la autorice NovaEra Nexus: o una lista de quién puede crear, o una solicitud que alguien aprueba, y el enlace desaparece para todos los demás. Decidir cuál antes de escribir código.
+*Aceptación:* un usuario normal que llame a `/tenants/nuevo` recibe 403 del servidor, no un enlace escondido; queda entrada de auditoría de quién autorizó cada alta.
+
+**F0-13 · Freno a las peticiones automáticas en el login** · M · Dep: F0-06
+El formulario de enlace por correo se puede pedir en bucle desde un script. Desde que el enlace sólo se manda a direcciones conocidas, el daño está acotado, pero sigue siendo correo saliente gratis y una forma de averiguar si una dirección existe midiendo tiempos. Falta un límite por IP en el borde y una comprobación de que quien escribe es una persona. La comprobación tiene que ser de las que no mandan datos del visitante a un tercero ni ponen cookies: un reto que se resuelve en el navegador, no un captcha de los que perfilan.
+*Aceptación:* un script que pide cien enlaces seguidos se queda fuera; una persona con el teclado no ve nada raro; ninguna petición sale hacia un dominio de terceros.
+
+**F0-14 · Etiquetas en el alta de organización** · S · Dep: F0-06
+`/tenants/nuevo` tiene dos campos sin etiqueta: uno con el texto de ejemplo dentro y otro con `EUR` puesto y ni eso. Nadie sabe qué se le está pidiendo, y el texto de ejemplo desaparece al escribir. Es el mismo fallo que se arregló en el login: cada campo con su `<label>` visible, y decir qué es la moneda base y para qué sirve.
+*Aceptación:* cada campo tiene etiqueta asociada y la pantalla se entiende sin que nadie la explique.
 
 ---
 
