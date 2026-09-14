@@ -56,6 +56,30 @@ Los importes retributivos son el dato más sensible del sistema y son datos pers
 6. Retención configurable y borrado/anonimización a petición (arts. 15–17 RGPD) con exportación en JSON.
 7. Los logs de aplicación y las trazas nunca contienen importes retributivos ni nombres de empleado; se referencian por id.
 
+### Retención: cuánto se guarda cada cosa
+
+Decidido el 13 de septiembre de 2026. La regla dura 15 exige que cada modelo con datos personales declare su plazo y su ruta de borrado; estos son los plazos, y el esquema tiene que reflejarlos modelo a modelo.
+
+| Qué | Cuánto | Por qué |
+|---|---|---|
+| Facturas, gastos, contratos y sus documentos | 6 años | Obligación fiscal y mercantil en España. No es negociable a la baja |
+| Registro de auditoría (`AuditLog`) | 2 años | Lo que hace falta para reconstruir un incidente; más allá deja de servir |
+| Invitaciones no aceptadas | 30 días | Guardan el correo de alguien que ni siquiera llega a ser usuario |
+| Tokens de verificación (`verification_token`) | Al caducar | Un token caducado no sirve para nada y lleva el correo dentro |
+| Datos de empleado y retribución | Mientras dure la relación, más 4 años | Plazo de prescripción laboral |
+
+Los plazos van como constantes en un único sitio, no repartidos por el código. Un plazo que hay que buscar en cinco ficheros acaba siendo cinco plazos distintos.
+
+### Baja de cliente: margen de 30 días y luego borrado
+
+Decidido el 13 de septiembre de 2026. Al dar de baja un tenant se marca y deja de ser accesible de inmediato: nadie entra, nada se lee. A los 30 días se borra de verdad, en cascada.
+
+El margen existe porque las bajas se equivocan. Un clic mal dado, un cliente que vuelve a la semana, una discusión de facturación que se resuelve. Treinta días basta para arreglarlo y sigue siendo un plazo defendible ante quien pregunte por qué no se borró en el acto.
+
+Durante el margen el dato está para restaurarlo y para nada más: no aparece en ningún agregado, ni en ninguna estadística, ni en ninguna pantalla. Si el cliente pide el borrado inmediato en vez de esperar, se borra en el acto; el margen es una comodidad nuestra, no una condición que se le pueda imponer.
+
+Queda descartado anonimizar y conservar los agregados. Obliga a justificar qué se guarda y por qué, y el producto no necesita hoy estadísticas propias entre clientes.
+
 ## 4. Modelo de datos (Prisma, resumido)
 
 > Convenciones: todos los importes `Int` en **céntimos** + `currency String @db.Char(3)`. Todas las entidades de negocio llevan `tenantId`, `createdAt`, `updatedAt`, `createdById`. Borrado lógico (`deletedAt`) en las entidades con valor contable.
