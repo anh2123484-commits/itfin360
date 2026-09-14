@@ -12,6 +12,13 @@ const schema = z.object({
   /** SMTP para el magic link, en forma de URL (`smtp://user:pass@host:587`). */
   EMAIL_SERVER: z.string().min(1),
   EMAIL_FROM: z.string().min(3),
+  /**
+   * Direcciones autorizadas a dar de alta una organización, separadas por
+   * comas. Vacía o ausente significa que no puede nadie: es el valor por
+   * defecto que no sorprende, porque un despiste de configuración cierra el
+   * alta en vez de abrirla. Ver `lib/altas.ts`.
+   */
+  ALTAS_ORGANIZACION: z.string().default(''),
 });
 
 export type WebEnv = z.infer<typeof schema>;
