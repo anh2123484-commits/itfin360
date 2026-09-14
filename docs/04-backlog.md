@@ -50,10 +50,12 @@ Los plazos y la baja de cliente están decididos y escritos en la sección 3 de 
 *Aceptación:* un modelo con un campo marcado como personal sin retención declarada falla el test del registro; el logger, ante un objeto con un campo personal, emite el identificador y nunca el valor; la purga borra un registro caducado y deja constancia en `AuditLog`.
 
 **F0-11 · Recuperar el acceso cuando se olvida la contraseña** · S · Dep: F0-06
+*Hecho el 14 de septiembre.* El enlace está bajo el formulario de contraseña y lleva al bloque del enlace mágico. Sin token nuevo. Queda pendiente arrastrar el correo ya escrito de un bloque al otro, que pide JavaScript en el cliente y no compensa por sí solo.
 El camino ya existe pero está escondido: quien olvida la contraseña pide un enlace en el bloque de arriba del login, entra con él y la cambia desde «Cuenta». Nadie lo deduce, porque la pantalla no lo dice y el usuario busca el «he olvidado mi contraseña» de siempre. Falta ese enlace debajo del formulario de contraseña, que lleve al bloque del enlace mágico con el correo ya escrito, y una frase que explique qué va a pasar. Sin endpoint nuevo ni token nuevo: se reutiliza el enlace mágico, que es lo que evita tener dos formas distintas de entrar y dos formas distintas de equivocarse.
 *Aceptación:* desde el login, sin saber la contraseña, se llega a tener una nueva sin que nadie tenga que explicar el procedimiento; el enlace no revela si la dirección existe o no.
 
 **F0-12 · Crear organización deja de ser libre** · M · Dep: F0-06
+*Hecho el 14 de septiembre.* Autorización por lista de direcciones en `ALTAS_ORGANIZACION`; vacía significa nadie. Comprobado en `createTenant`, no sólo en la pantalla. Queda pendiente la versión con columna en `user`, pantalla de administración y entrada de auditoría, que es migración.
 Hoy cualquiera que tenga cuenta puede crear organizaciones sin límite: el enlace «Crear otro tenant» está en la portada y `/tenants/nuevo` sólo pide estar autenticado. Mientras el producto sea privado eso significa que quien entre por una invitación a un tenant puede montarse los suyos propios al margen. Hace falta que el alta de organización la autorice NovaEra Nexus: o una lista de quién puede crear, o una solicitud que alguien aprueba, y el enlace desaparece para todos los demás. Decidir cuál antes de escribir código.
 *Aceptación:* un usuario normal que llame a `/tenants/nuevo` recibe 403 del servidor, no un enlace escondido; queda entrada de auditoría de quién autorizó cada alta.
 
@@ -62,6 +64,7 @@ El formulario de enlace por correo se puede pedir en bucle desde un script. Desd
 *Aceptación:* un script que pide cien enlaces seguidos se queda fuera; una persona con el teclado no ve nada raro; ninguna petición sale hacia un dominio de terceros.
 
 **F0-14 · Etiquetas en el alta de organización** · S · Dep: F0-06
+*Hecho el 14 de septiembre.*
 `/tenants/nuevo` tiene dos campos sin etiqueta: uno con el texto de ejemplo dentro y otro con `EUR` puesto y ni eso. Nadie sabe qué se le está pidiendo, y el texto de ejemplo desaparece al escribir. Es el mismo fallo que se arregló en el login: cada campo con su `<label>` visible, y decir qué es la moneda base y para qué sirve.
 *Aceptación:* cada campo tiene etiqueta asociada y la pantalla se entiende sin que nadie la explique.
 

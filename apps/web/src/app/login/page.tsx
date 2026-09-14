@@ -56,7 +56,7 @@ export default async function LoginPage({
         </p>
       ) : null}
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3" id="entrar-con-enlace">
         <div className="flex flex-col gap-1">
           <h2 className="font-medium">Primera vez, o si no tienes contraseña</h2>
           <p className="text-muted-foreground text-sm">
@@ -118,6 +118,21 @@ export default async function LoginPage({
             Entrar
           </Button>
         </form>
+        {/*
+          El camino para recuperar el acceso ya existía y estaba escondido: se
+          pide un enlace arriba, se entra con él y se cambia la contraseña desde
+          «Cuenta». Nadie lo deducía, porque la pantalla no lo decía y la gente
+          busca el «he olvidado mi contraseña» de siempre. Es un enlace al
+          bloque de arriba, no un procedimiento nuevo: dos formas distintas de
+          recuperar el acceso serían dos formas distintas de equivocarse, y una
+          de las dos acabaría siendo la más débil.
+        */}
+        <p className="text-muted-foreground text-sm">
+          <a className="underline" href="#entrar-con-enlace">
+            He olvidado la contraseña
+          </a>{' '}
+          · pide un enlace arriba, entra con él y ponte una nueva desde «Cuenta».
+        </p>
       </section>
 
       <p className="text-muted-foreground text-sm">

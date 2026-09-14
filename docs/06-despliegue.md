@@ -156,6 +156,12 @@ delante no sirve, Vercel se lo quita.
 | `APP_URL`                | `https://<tu-dominio>.vercel.app`                                                                                         |
 | `EMAIL_SERVER`           | SMTP del enlace mágico, p. ej. `smtp://resend:<api-key>@smtp.resend.com:587`                                               |
 | `EMAIL_FROM`             | `ITFin360 <no-reply@tu-dominio>`                                                                                          |
+| `ALTAS_ORGANIZACION`     | Direcciones que pueden dar de alta una organización, separadas por comas. Vacía o ausente: no puede nadie                  |
+
+Sobre `ALTAS_ORGANIZACION`: si no está, nadie puede crear organizaciones, ni
+siquiera tú. Es a propósito. Un fallo de configuración tiene que cerrar el alta,
+no abrirla a cualquiera que consiga una cuenta. Para dar de alta un cliente,
+añade tu dirección, crea la organización y quita la variable otra vez.
 
 `ADMIN_DATABASE_URL` **no** va aquí. Si aparece, algo se ha hecho mal.
 
