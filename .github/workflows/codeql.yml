@@ -37,9 +37,9 @@ jobs:
       actions: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           # `security-and-quality` trae, además de los avisos de seguridad, los
@@ -51,6 +51,6 @@ jobs:
       # No se compila nada: para TypeScript, CodeQL analiza el código fuente. Se
       # evita así tener que montar la base de datos y las variables de entorno
       # que necesita `next build`, que ya cubre el otro workflow.
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
         with:
           category: '/language:javascript-typescript'
