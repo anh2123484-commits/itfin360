@@ -56,32 +56,25 @@ jobs:
       DATABASE_URL: postgresql://itfin360:itfin360@localhost:5432/itfin360?schema=public
       MIGRATION_DATABASE_URL: postgresql://itfin360:itfin360@localhost:5432/itfin360?schema=public
       REDIS_URL: redis://localhost:6379
-      S3_ENDPOINT: http://localhost:9000
-      S3_REGION: us-east-1
-      S3_ACCESS_KEY_ID: itfin360
-      S3_SECRET_ACCESS_KEY: itfin360dev
-      S3_BUCKET: itfin360-ci
-      S3_FORCE_PATH_STYLE: 'true'
 
+    # Aquí había un paso que levantaba MinIO. Se ha quitado el 26 de septiembre
+    # por dos razones que se juntaron.
+    #
+    # La primera: no lo usaba nadie. Ni una línea de código ni un test toca S3
+    # en todo el repositorio. El almacenamiento de ficheros entra con el OCR, y
+    # hasta entonces levantar MinIO en cada PR era pagar medio minuto y una
+    # dependencia externa a cambio de nada.
+    #
+    # La segunda: dejó de poderse descargar. quay.io empezó a responder
+    # `unauthorized` a esa imagen y Docker Hub `pull access denied`, así que
+    # todas las PR se quedaban en rojo antes de llegar al lint, por algo que no
+    # tenía nada que ver con el código que traían.
+    #
+    # Cuando haga falta de verdad, vuelve con su tag comprobado y, a ser
+    # posible, con la imagen espejada en el registro de GitHub para no depender
+    # de que un tercero siga publicando la misma etiqueta dentro de dos años.
     steps:
       - uses: actions/checkout@v4
-
-      # MinIO no puede declararse como `service`: necesita el argumento `server /data`,
-      # que GitHub Actions no permite pasar a un contenedor de servicio.
-      - name: Levantar MinIO
-        run: |
-          docker run -d --name minio \
-            -p 9000:9000 \
-            -e MINIO_ROOT_USER="$S3_ACCESS_KEY_ID" \
-            -e MINIO_ROOT_PASSWORD="$S3_SECRET_ACCESS_KEY" \
-            quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
-          for _ in $(seq 1 30); do
-            if curl -fsS http://localhost:9000/minio/health/live; then exit 0; fi
-            sleep 2
-          done
-          echo "MinIO no llegó a estar sano" >&2
-          docker logs minio >&2
-          exit 1
 
       - uses: pnpm/action-setup@v4
 

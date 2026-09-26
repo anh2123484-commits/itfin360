@@ -51,6 +51,8 @@ const A = {
   vendor: 'aaaaaaa6-0000-4000-8000-000000000001',
   invoice: 'aaaaaaa7-0000-4000-8000-000000000001',
   invoiceLine: 'aaaaaaa8-0000-4000-8000-000000000001',
+  contract: 'aaaaaaa9-0000-4000-8000-000000000001',
+  asset: 'aaaaaab1-0000-4000-8000-000000000001',
 } as const;
 const B = {
   user: 'bbbbbbb1-0000-4000-8000-000000000001',
@@ -61,6 +63,8 @@ const B = {
   vendor: 'bbbbbbb6-0000-4000-8000-000000000001',
   invoice: 'bbbbbbb7-0000-4000-8000-000000000001',
   invoiceLine: 'bbbbbbb8-0000-4000-8000-000000000001',
+  contract: 'bbbbbbb9-0000-4000-8000-000000000001',
+  asset: 'bbbbbbc1-0000-4000-8000-000000000001',
 } as const;
 
 /** B tiene el doble de filas y fechas posteriores: cualquier fuga cambia counts y máximos. */
@@ -233,6 +237,79 @@ async function seed(): Promise<void> {
         netCents: 300_000,
         costType: 'OPEX_ONE_OFF',
         concept: 'SECURITY_AUDIT',
+      },
+    ],
+  });
+  await migrator.contract.createMany({
+    data: [
+      {
+        id: A.contract,
+        tenantId: TENANT_A,
+        vendorId: A.vendor,
+        name: 'Suscripcion ficticia de A',
+        concept: 'SAAS_SUBSCRIPTION',
+        amountCents: 120_000,
+        currency: 'EUR',
+        periodicity: 'ANNUAL',
+        startDate: FECHA_A,
+      },
+      {
+        id: B.contract,
+        tenantId: TENANT_B,
+        vendorId: B.vendor,
+        name: 'Suscripcion ficticia de B',
+        concept: 'SAAS_SUBSCRIPTION',
+        amountCents: 240_000,
+        currency: 'EUR',
+        periodicity: 'ANNUAL',
+        startDate: FECHA_B,
+      },
+      {
+        id: 'bbbbbbb9-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        vendorId: B.vendor,
+        name: 'Mantenimiento ficticio de B',
+        concept: 'MAINTENANCE',
+        amountCents: 360_000,
+        currency: 'EUR',
+        periodicity: 'QUARTERLY',
+        startDate: FECHA_B,
+      },
+    ],
+  });
+  await migrator.asset.createMany({
+    data: [
+      {
+        id: A.asset,
+        tenantId: TENANT_A,
+        vendorId: A.vendor,
+        name: 'Portatil ficticio de A',
+        category: 'LAPTOP',
+        acquisitionCents: 120_000,
+        usefulLifeMonths: 48,
+        inServiceDate: FECHA_A,
+        currency: 'EUR',
+      },
+      {
+        id: B.asset,
+        tenantId: TENANT_B,
+        vendorId: B.vendor,
+        name: 'Servidor ficticio de B',
+        category: 'SERVER',
+        acquisitionCents: 900_000,
+        usefulLifeMonths: 60,
+        inServiceDate: FECHA_B,
+        currency: 'EUR',
+      },
+      {
+        id: 'bbbbbbc1-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        name: 'Switch ficticio de B',
+        category: 'NETWORK',
+        acquisitionCents: 300_000,
+        usefulLifeMonths: 84,
+        inServiceDate: FECHA_B,
+        currency: 'EUR',
       },
     ],
   });
@@ -412,6 +489,28 @@ const SONDAS: readonly SondaDeModelo[] = [
       (await db.invoiceLine.updateMany({ where: { id }, data: { description: 'Intruso' } })).count,
     borrarPorId: async (db, id) => (await db.invoiceLine.deleteMany({ where: { id } })).count,
   },
+  {
+    modelo: 'contract',
+    filasDeA: 1,
+    idDeB: B.contract,
+    contar: (db) => db.contract.count(),
+    tenantIdsVisibles: async (db) => (await db.contract.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.contract.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.contract.updateMany({ where: { id }, data: { amountCents: 1 } })).count,
+    borrarPorId: async (db, id) => (await db.contract.deleteMany({ where: { id } })).count,
+  },
+  {
+    modelo: 'asset',
+    filasDeA: 1,
+    idDeB: B.asset,
+    contar: (db) => db.asset.count(),
+    tenantIdsVisibles: async (db) => (await db.asset.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.asset.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.asset.updateMany({ where: { id }, data: { name: 'Intruso' } })).count,
+    borrarPorId: async (db, id) => (await db.asset.deleteMany({ where: { id } })).count,
+  },
 ];
 
 /** Ejecuta `fn` en el cliente de aplicación con `app.current_tenant` fijado a `valor`. */
@@ -439,10 +538,10 @@ describe('aislamiento entre tenants con RLS', () => {
       SELECT relname, relrowsecurity, relforcerowsecurity
       FROM pg_class
       WHERE relname IN ('tenant', 'tenant_param_version', 'membership', 'audit_log', 'invitation',
-                        'vendor', 'invoice', 'invoice_line')
+                        'vendor', 'invoice', 'invoice_line', 'contract', 'asset')
       ORDER BY relname
     `);
-    expect(tablas).toHaveLength(8);
+    expect(tablas).toHaveLength(10);
     for (const tabla of tablas) {
       expect(tabla, tabla.relname).toMatchObject({
         relrowsecurity: true,
@@ -458,7 +557,7 @@ describe('aislamiento entre tenants con RLS', () => {
       WHERE schemaname = 'public'
       ORDER BY tablename
     `);
-    expect(politicas).toHaveLength(8);
+    expect(politicas).toHaveLength(10);
     for (const politica of politicas) {
       expect(politica.policyname, politica.tablename).toBe('tenant_isolation');
       expect(politica.qual, politica.tablename).toContain('NULLIF');
