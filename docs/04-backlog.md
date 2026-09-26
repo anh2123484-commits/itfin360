@@ -165,14 +165,17 @@ Decisiones que fija esta pantalla, porque hasta ahora no estaban escritas en nin
 ## Fase 3 · Contratos e inmovilizado
 
 **F3-01 · Contratos y recurrentes** · M · Dep: F2-01
+*Hecho el 26 de septiembre.* Tabla `contract` con RLS, alta desde `/contratos`, coste mensual y anualizado por `normalizeRecurring`, y cuenta atrás hasta el preaviso (no hasta la renovación). Pendiente: edición, vinculación factura↔contrato y el calendario como tal.
 Modelo, CRUD, coste normalizado, vinculación factura↔contrato, calendario de renovaciones.
 *Aceptación:* un contrato trimestral de 900 € muestra 300 €/mes y 3.600 €/año.
 
 **F3-02 · Desperdicio de licencias y subidas de precio** · M · Dep: F3-01
+*Hecho el 26 de septiembre.* Los avisos salen en `/contratos`, ordenados por dinero en juego, y los cancelados no generan ninguno. Pendiente: persistirlos como `Alert` con reconocimiento, que va con el motor de alertas de F8-01.
 `licensedSeats` vs `activeSeats` → coste desperdiciado; comparación de precio contra el periodo anterior.
 *Aceptación:* alerta `LICENSE_WASTE` cuando el desperdicio supera el umbral configurado; alerta `PRICE_INCREASE` con el delta y el porcentaje.
 
 **F3-03 · Registro de activos** · M · Dep: F2-01
+*Hecho el 26 de septiembre.* Tabla `asset` con RLS, alta desde `/activos`, enlace opcional a la factura de origen y vida útil por defecto según categoría. Pendiente: alta desde línea de factura con el control de doble cómputo, y la asignación a servicio y centro de coste, que necesitan esos modelos.
 Modelo, CRUD, asignación a servicio/centro de coste/empleado, alta desde línea de factura, baja con resultado.
 *Aceptación:* dar de alta un activo desde una línea `CAPEX` evita el doble cómputo de esa línea como OPEX (test explícito).
 
@@ -181,6 +184,7 @@ Job que genera `DepreciationEntry`; idempotente por `(asset, period)`.
 *Aceptación:* ejecutar el job dos veces sobre el mismo periodo no duplica; el acumulado nunca supera la base amortizable.
 
 **F3-05 · Panel de inmovilizado** · M · Dep: F3-04
+*Hecho a medias el 26 de septiembre.* `/activos` ya enseña valor de compra, valor neto contable, amortización mensual, deuda técnica y el riesgo de renovación sin presupuestar. Falta el desglose por categoría y edad.
 Parque por categoría, edad, VNC, deuda técnica, próximas reposiciones y su encaje en presupuesto.
 *Aceptación:* activos que superan su vida útil aparecen con el coste de reposición estimado y la fórmula usada visible.
 
