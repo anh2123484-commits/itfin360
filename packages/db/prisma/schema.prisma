@@ -111,6 +111,51 @@ enum SpendConcept {
 }
 
 /// Organización cliente. Raíz del aislamiento: el resto de tablas cuelga de aquí.
+enum Periodicity {
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+  BIENNIAL
+
+  @@map("periodicity")
+}
+
+enum ContractStatus {
+  ACTIVE
+  NOTICE_GIVEN
+  CANCELLED
+  EXPIRED
+
+  @@map("contract_status")
+}
+
+/// Categorías con vida útil por defecto en `DEFAULT_USEFUL_LIFE_MONTHS`
+/// (`@itfin360/finance-core`). Las dos listas tienen que decir lo mismo.
+enum AssetCategory {
+  SERVER
+  STORAGE
+  NETWORK
+  WORKSTATION
+  LAPTOP
+  MOBILE
+  PERIPHERAL
+  SOFTWARE_LICENSE_PERPETUAL
+  INTANGIBLE_DEV
+
+  @@map("asset_category")
+}
+
+enum AssetStatus {
+  IN_USE
+  IN_STOCK
+  IN_REPAIR
+  RETIRED
+  DISPOSED
+
+  @@map("asset_status")
+}
+
 model Tenant {
   id                   String   @id @default(uuid()) @db.Uuid
   name                 String
@@ -128,6 +173,8 @@ model Tenant {
   vendors       Vendor[]
   invoices      Invoice[]
   invoiceLines  InvoiceLine[]
+  contracts     Contract[]
+  assets        Asset[]
 
   @@map("tenant")
 }
@@ -262,8 +309,10 @@ model Vendor {
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoices Invoice[]
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices  Invoice[]
+  contracts Contract[]
+  assets    Asset[]
 
   @@unique([tenantId, name])
   @@unique([tenantId, taxId])
@@ -307,6 +356,7 @@ model Invoice {
   createdBy   User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
   duplicates  Invoice[]     @relation("InvoiceDuplicate")
   lines       InvoiceLine[]
+  assets      Asset[]
 
   @@unique([tenantId, vendorId, invoiceNumber])
   @@index([tenantId, accrualDate])
@@ -339,4 +389,84 @@ model InvoiceLine {
   @@index([tenantId, concept])
   @@index([invoiceId])
   @@map("invoice_line")
+}
+
+/// Contrato o suscripción recurrente. Los campos de importe, periodicidad y
+/// puestos son los que consumen `normalizeRecurring`, `licenseWaste` y
+/// `priceChange` de `@itfin360/finance-core`: la fila se le pasa al motor casi
+/// tal cual.
+///
+/// `previousAmountCents` y `previousPeriodicity` guardan el periodo anterior, no
+/// el histórico entero. Para avisar de una subida de precio hace falta un solo
+/// punto de comparación; el histórico completo es otra tarea.
+model Contract {
+  id                  String          @id @default(uuid()) @db.Uuid
+  tenantId            String          @map("tenant_id") @db.Uuid
+  vendorId            String          @map("vendor_id") @db.Uuid
+  name                String
+  concept             SpendConcept
+  amountCents         Int             @map("amount_cents")
+  currency            String          @db.Char(3)
+  periodicity         Periodicity
+  startDate           DateTime        @map("start_date")
+  endDate             DateTime?       @map("end_date")
+  renewalDate         DateTime?       @map("renewal_date")
+  noticeDays          Int?            @map("notice_days")
+  autoRenew           Boolean         @default(false) @map("auto_renew")
+  licensedSeats       Int?            @map("licensed_seats")
+  activeSeats         Int?            @map("active_seats")
+  seatsMeasuredAt     DateTime?       @map("seats_measured_at")
+  previousAmountCents Int?            @map("previous_amount_cents")
+  previousPeriodicity Periodicity?    @map("previous_periodicity")
+  status              ContractStatus  @default(ACTIVE)
+  notes               String?
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, vendorId, name])
+  @@index([tenantId, status])
+  @@index([tenantId, renewalDate])
+  @@index([vendorId])
+  @@map("contract")
+}
+
+/// Activo del inmovilizado. `acquisitionCents`, `residualCents`,
+/// `usefulLifeMonths` e `inServiceDate` son `DepreciationInput` literal;
+/// `catalogPriceCents` y `hasBudgetLine`, `AssetForDebt`.
+///
+/// `invoiceId` es lo que permite bajar desde una cifra del cuadro de mando hasta
+/// el documento que la originó. Es opcional porque el parque anterior a la
+/// aplicación se carga sin factura.
+model Asset {
+  id                String        @id @default(uuid()) @db.Uuid
+  tenantId          String        @map("tenant_id") @db.Uuid
+  vendorId          String?       @map("vendor_id") @db.Uuid
+  invoiceId         String?       @map("invoice_id") @db.Uuid
+  name              String
+  category          AssetCategory
+  serialNumber      String?       @map("serial_number")
+  acquisitionCents  Int           @map("acquisition_cents")
+  residualCents     Int           @default(0) @map("residual_cents")
+  usefulLifeMonths  Int           @map("useful_life_months")
+  inServiceDate     DateTime      @map("in_service_date")
+  currency          String        @db.Char(3)
+  status            AssetStatus   @default(IN_USE)
+  catalogPriceCents Int?          @map("catalog_price_cents")
+  hasBudgetLine     Boolean       @default(false) @map("has_budget_line")
+  assignedTo        String?       @map("assigned_to")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor  Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, serialNumber])
+  @@index([tenantId, category])
+  @@index([tenantId, status])
+  @@index([invoiceId])
+  @@map("asset")
 }
