@@ -67,16 +67,22 @@ export {
   withTenantExtension,
 } from './tenant-context.js';
 export {
+  AssetCategory,
+  AssetStatus,
+  ContractStatus,
   CostType,
   Criticality,
   InvoiceSource,
   InvoiceStatus,
+  Periodicity,
   Plan,
   Role,
   SpendConcept,
 } from './generated/prisma/enums.js';
 export type {
+  AssetModel as Asset,
   AuditLogModel as AuditLog,
+  ContractModel as Contract,
   InvitationModel as Invitation,
   InvoiceLineModel as InvoiceLine,
   InvoiceModel as Invoice,
