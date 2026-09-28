@@ -111,6 +111,15 @@ enum SpendConcept {
 }
 
 /// Organización cliente. Raíz del aislamiento: el resto de tablas cuelga de aquí.
+enum EmploymentType {
+  PERMANENT
+  TEMPORARY
+  INTERN
+  CONTRACTOR
+
+  @@map("employment_type")
+}
+
 enum Periodicity {
   MONTHLY
   QUARTERLY
@@ -175,6 +184,8 @@ model Tenant {
   invoiceLines  InvoiceLine[]
   contracts     Contract[]
   assets        Asset[]
+  positions     Position[]
+  employees     Employee[]
 
   @@map("tenant")
 }
@@ -469,4 +480,60 @@ model Asset {
   @@index([tenantId, status])
   @@index([invoiceId])
   @@map("asset")
+}
+
+/// Puesto de trabajo. Existe aparte del empleado porque el coste por rol y las
+/// bandas retributivas se calculan por puesto, no por persona, y porque un
+/// puesto sobrevive a quien lo ocupa.
+model Position {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String
+  family      String?
+  level       String?
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees Employee[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("position")
+}
+
+/// Persona del departamento. Aquí no hay retribución: eso vive cifrado y
+/// auditado en su propia tabla (F4-02), para que consultar la plantilla no
+/// obligue a pasar por el permiso salarial.
+///
+/// `fteBp` es la jornada en puntos básicos: 10000 es completa, 3750 es un 37,5 %.
+/// Enteros y no decimales, porque este número multiplica dinero.
+///
+/// `terminationDate` es lo que hace que quien se va en junio no cuente como un
+/// año entero en los cálculos anuales.
+model Employee {
+  id              String         @id @default(uuid()) @db.Uuid
+  tenantId        String         @map("tenant_id") @db.Uuid
+  positionId      String?        @map("position_id") @db.Uuid
+  fullName        String         @map("full_name")
+  employeeCode    String?        @map("employee_code")
+  email           String?
+  employmentType  EmploymentType @default(PERMANENT) @map("employment_type")
+  fteBp           Int            @default(10000) @map("fte_bp")
+  hireDate        DateTime       @map("hire_date")
+  terminationDate DateTime?      @map("termination_date")
+  team            String?
+  costCenter      String?        @map("cost_center")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  position Position? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, employeeCode])
+  @@index([tenantId, hireDate])
+  @@index([tenantId, team])
+  @@index([positionId])
+  @@map("employee")
 }

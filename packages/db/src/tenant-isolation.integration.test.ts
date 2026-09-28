@@ -53,6 +53,8 @@ const A = {
   invoiceLine: 'aaaaaaa8-0000-4000-8000-000000000001',
   contract: 'aaaaaaa9-0000-4000-8000-000000000001',
   asset: 'aaaaaab1-0000-4000-8000-000000000001',
+  position: 'aaaaaab2-0000-4000-8000-000000000001',
+  employee: 'aaaaaab3-0000-4000-8000-000000000001',
 } as const;
 const B = {
   user: 'bbbbbbb1-0000-4000-8000-000000000001',
@@ -65,6 +67,8 @@ const B = {
   invoiceLine: 'bbbbbbb8-0000-4000-8000-000000000001',
   contract: 'bbbbbbb9-0000-4000-8000-000000000001',
   asset: 'bbbbbbc1-0000-4000-8000-000000000001',
+  position: 'bbbbbbc2-0000-4000-8000-000000000001',
+  employee: 'bbbbbbc3-0000-4000-8000-000000000001',
 } as const;
 
 /** B tiene el doble de filas y fechas posteriores: cualquier fuga cambia counts y máximos. */
@@ -313,6 +317,45 @@ async function seed(): Promise<void> {
       },
     ],
   });
+  await migrator.position.createMany({
+    data: [
+      { id: A.position, tenantId: TENANT_A, name: 'Puesto ficticio de A' },
+      { id: B.position, tenantId: TENANT_B, name: 'Puesto ficticio de B' },
+      {
+        id: 'bbbbbbc2-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        name: 'Segundo puesto ficticio de B',
+      },
+    ],
+  });
+  await migrator.employee.createMany({
+    data: [
+      {
+        id: A.employee,
+        tenantId: TENANT_A,
+        positionId: A.position,
+        fullName: 'Persona Ficticia de A',
+        employeeCode: 'A-0001',
+        hireDate: FECHA_A,
+      },
+      {
+        id: B.employee,
+        tenantId: TENANT_B,
+        positionId: B.position,
+        fullName: 'Persona Ficticia de B',
+        employeeCode: 'B-0001',
+        hireDate: FECHA_B,
+      },
+      {
+        id: 'bbbbbbc3-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        fullName: 'Segunda Persona Ficticia de B',
+        employeeCode: 'B-0002',
+        fteBp: 5_000,
+        hireDate: FECHA_B,
+      },
+    ],
+  });
   await migrator.invitation.createMany({
     data: [
       {
@@ -511,6 +554,28 @@ const SONDAS: readonly SondaDeModelo[] = [
       (await db.asset.updateMany({ where: { id }, data: { name: 'Intruso' } })).count,
     borrarPorId: async (db, id) => (await db.asset.deleteMany({ where: { id } })).count,
   },
+  {
+    modelo: 'position',
+    filasDeA: 1,
+    idDeB: B.position,
+    contar: (db) => db.position.count(),
+    tenantIdsVisibles: async (db) => (await db.position.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.position.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.position.updateMany({ where: { id }, data: { name: 'Intruso' } })).count,
+    borrarPorId: async (db, id) => (await db.position.deleteMany({ where: { id } })).count,
+  },
+  {
+    modelo: 'employee',
+    filasDeA: 1,
+    idDeB: B.employee,
+    contar: (db) => db.employee.count(),
+    tenantIdsVisibles: async (db) => (await db.employee.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.employee.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.employee.updateMany({ where: { id }, data: { fullName: 'Intruso' } })).count,
+    borrarPorId: async (db, id) => (await db.employee.deleteMany({ where: { id } })).count,
+  },
 ];
 
 /** Ejecuta `fn` en el cliente de aplicación con `app.current_tenant` fijado a `valor`. */
@@ -538,10 +603,11 @@ describe('aislamiento entre tenants con RLS', () => {
       SELECT relname, relrowsecurity, relforcerowsecurity
       FROM pg_class
       WHERE relname IN ('tenant', 'tenant_param_version', 'membership', 'audit_log', 'invitation',
-                        'vendor', 'invoice', 'invoice_line', 'contract', 'asset')
+                        'vendor', 'invoice', 'invoice_line', 'contract', 'asset',
+                        'position', 'employee')
       ORDER BY relname
     `);
-    expect(tablas).toHaveLength(10);
+    expect(tablas).toHaveLength(12);
     for (const tabla of tablas) {
       expect(tabla, tabla.relname).toMatchObject({
         relrowsecurity: true,
@@ -557,7 +623,7 @@ describe('aislamiento entre tenants con RLS', () => {
       WHERE schemaname = 'public'
       ORDER BY tablename
     `);
-    expect(politicas).toHaveLength(10);
+    expect(politicas).toHaveLength(12);
     for (const politica of politicas) {
       expect(politica.policyname, politica.tablename).toBe('tenant_isolation');
       expect(politica.qual, politica.tablename).toContain('NULLIF');
