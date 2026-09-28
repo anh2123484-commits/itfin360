@@ -15,6 +15,7 @@ import {
 } from '@/lib/horas';
 import { imputacionesDelDia, semanaDeImputacion } from '@/lib/horas-query';
 import { can } from '@/lib/permissions';
+import { proyectosImputables } from '@/lib/proyecto-query';
 import { requireAnyPermission, requirePrincipal } from '@/lib/tenant-context';
 
 /**
@@ -58,6 +59,7 @@ async function crear(formData: FormData): Promise<void> {
 
   const datos = altaImputacion.safeParse({
     employeeId: campo('employeeId'),
+    projectId: campo('projectId'),
     entryDate: campo('entryDate'),
     minutes: campo('minutes'),
     startMinute: campo('startMinute'),
@@ -102,6 +104,7 @@ async function crear(formData: FormData): Promise<void> {
       data: {
         tenantId: principal.tenantId,
         employeeId: persona.id,
+        projectId: entrada.projectId ?? null,
         entryDate: fecha,
         minutes: entrada.minutes,
         startMinute: entrada.startMinute ?? null,
@@ -139,6 +142,7 @@ export default async function HorasPage({
     principal.tenantId,
     (tx) => semanaDeImputacion(tx, undefined, desdeParametro),
   );
+  const proyectos = await db().withTenant(principal.tenantId, (tx) => proyectosImputables(tx));
 
   const DIA_MS = 24 * 60 * 60 * 1000;
   const semanaAnterior = iso(new Date(desde.getTime() - 7 * DIA_MS));
@@ -234,6 +238,7 @@ export default async function HorasPage({
                   <th className="p-2 font-medium">Hora</th>
                   <th className="p-2 text-right font-medium">Duración</th>
                   <th className="p-2 font-medium">Actividad</th>
+                  <th className="p-2 font-medium">Proyecto</th>
                   <th className="p-2 font-medium">Servicio</th>
                   <th className="p-2 font-medium">Marcas</th>
                 </tr>
@@ -248,6 +253,7 @@ export default async function HorasPage({
                       {formatearDuracion(fila.minutes)}
                     </td>
                     <td className="p-2">{ETIQUETA_ACTIVIDAD[fila.activity]}</td>
+                    <td className="p-2 font-mono text-xs">{fila.project?.code ?? ''}</td>
                     <td className="p-2">{fila.service ?? ''}</td>
                     <td className="p-2 text-xs">
                       {fila.isOvertime ? (
@@ -323,8 +329,23 @@ export default async function HorasPage({
                   </select>
                 </label>
                 <label className="flex flex-col gap-1.5 text-sm font-medium">
-                  Servicio o proyecto
-                  <Input name="service" maxLength={200} className="w-48" />
+                  Proyecto
+                  <select
+                    name="projectId"
+                    defaultValue=""
+                    className="w-48 rounded border px-3 py-2"
+                  >
+                    <option value="">Sin proyecto</option>
+                    {proyectos.map((proyecto) => (
+                      <option key={proyecto.id} value={proyecto.id}>
+                        {proyecto.code} · {proyecto.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5 text-sm font-medium">
+                  Servicio
+                  <Input name="service" maxLength={200} className="w-40" />
                 </label>
                 <label className="flex flex-col gap-1.5 text-sm font-medium">
                   Descripción
@@ -351,7 +372,8 @@ export default async function HorasPage({
               La duración se escribe en horas (`1,5`) o en minutos con una eme al final (`90m`). La
               hora de inicio es opcional; si la pones, se comprueba que no se pise con otra
               imputación del mismo día. Y si un día se pasa de la jornada, hay que marcarlo como
-              extra: no se bloquea, se cuenta.
+              extra: no se bloquea, se cuenta. Las horas con proyecto son las que alimentan el coste
+              real de ese proyecto.
             </p>
           </section>
         ) : null}

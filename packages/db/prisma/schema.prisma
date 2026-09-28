@@ -128,6 +128,31 @@ enum TimeSource {
   @@map("time_source")
 }
 
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  ON_HOLD
+  DELIVERED
+  CANCELLED
+
+  @@map("project_status")
+}
+
+enum ProgressMethod {
+  WEIGHTED_MILESTONES
+  ZERO_FIFTY_HUNDRED
+
+  @@map("progress_method")
+}
+
+enum MilestoneStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("milestone_status")
+}
+
 enum EmploymentType {
   PERMANENT
   TEMPORARY
@@ -204,6 +229,9 @@ model Tenant {
   positions     Position[]
   employees     Employee[]
   timeEntries   TimeEntry[]
+  projects      Project[]
+  baselines     ProjectBaseline[]
+  milestones    Milestone[]
 
   @@map("tenant")
 }
@@ -244,6 +272,7 @@ model User {
   invitationsSent     Invitation[]
   invoicesCreated     Invoice[]
   timeEntriesCreated  TimeEntry[]
+  baselinesCreated    ProjectBaseline[]
 
   @@map("user")
 }
@@ -550,6 +579,7 @@ model Employee {
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   position    Position?   @relation(fields: [positionId], references: [id], onDelete: SetNull)
   timeEntries TimeEntry[]
+  projectsLed Project[]
 
   @@unique([tenantId, employeeCode])
   @@index([tenantId, hireDate])
@@ -586,6 +616,7 @@ model TimeEntry {
   isOvertime  Boolean      @default(false) @map("is_overtime")
   isBillable  Boolean      @default(false) @map("is_billable")
   source      TimeSource   @default(MANUAL)
+  projectId   String?      @map("project_id") @db.Uuid
   externalKey String?      @map("external_key")
   createdById String?      @map("created_by_id") @db.Uuid
   createdAt   DateTime     @default(now()) @map("created_at")
@@ -593,11 +624,104 @@ model TimeEntry {
 
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employee  Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, externalKey])
   @@index([tenantId, entryDate])
   @@index([employeeId, entryDate])
   @@index([tenantId, activity])
+  @@index([projectId])
   @@map("time_entry")
+}
+
+/// Proyecto. La unidad contra la que se mide la desviación (F5-01).
+///
+/// El presupuesto no está aquí: vive en `ProjectBaseline`, versionado. Un
+/// proyecto sin baseline vigente existe, pero todavía no tiene contra qué
+/// desviarse, y el producto lo dice en vez de enseñar un cero.
+model Project {
+  id             String         @id @default(uuid()) @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  code           String
+  name           String
+  description    String?
+  status         ProjectStatus  @default(PLANNED)
+  progressMethod ProgressMethod @default(WEIGHTED_MILESTONES) @map("progress_method")
+  service        String?
+  costCenter     String?        @map("cost_center")
+  sponsor        String?
+  managerId      String?        @map("manager_id") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  manager     Employee?         @relation(fields: [managerId], references: [id], onDelete: SetNull)
+  baselines   ProjectBaseline[]
+  milestones  Milestone[]
+  timeEntries TimeEntry[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@index([managerId])
+  @@map("project")
+}
+
+/// Baseline del proyecto: presupuesto y plazo aprobados, versionados.
+///
+/// Tabla de historia, no de estado. Re-planificar escribe `version + 1` y apaga
+/// el `isCurrent` de la anterior; nunca sobrescribe. Es lo que permite
+/// distinguir «esto se desvió» de «se cambió el objetivo». Un índice único
+/// parcial en la base garantiza una sola baseline vigente por proyecto.
+model ProjectBaseline {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  version     Int
+  bacCents    Int      @map("bac_cents")
+  startDate   DateTime @map("start_date") @db.Date
+  endDate     DateTime @map("end_date") @db.Date
+  reason      String
+  approvedBy  String   @map("approved_by")
+  approvedAt  DateTime @default(now()) @map("approved_at")
+  isCurrent   Boolean  @default(true) @map("is_current")
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, version])
+  @@index([tenantId])
+  @@map("project_baseline")
+}
+
+/// Hito ponderado. `weightBp` en puntos básicos: la suma de los hitos de un
+/// proyecto tiene que dar 10000 exacto, y eso lo valida la transacción que
+/// guarda el conjunto, porque es una condición entre filas y un `CHECK` no la ve.
+///
+/// `progressBp` es avance declarado, nunca deducido del gasto: medir avance por
+/// consumo es lo que hace que un proyecto parezca ir bien hasta el día antes de
+/// la entrega.
+model Milestone {
+  id          String          @id @default(uuid()) @db.Uuid
+  tenantId    String          @map("tenant_id") @db.Uuid
+  projectId   String          @map("project_id") @db.Uuid
+  name        String
+  weightBp    Int             @map("weight_bp")
+  status      MilestoneStatus @default(NOT_STARTED)
+  progressBp  Int?            @map("progress_bp")
+  plannedDate DateTime?       @map("planned_date") @db.Date
+  actualDate  DateTime?       @map("actual_date") @db.Date
+  position    Int             @default(0)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, position])
+  @@index([tenantId, status])
+  @@map("milestone")
 }

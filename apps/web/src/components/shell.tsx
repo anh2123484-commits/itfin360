@@ -35,6 +35,7 @@ const SECCIONES: readonly Seccion[] = [
   { href: '/activos', texto: 'Inmovilizado', permisos: ['invoices:read', 'invoices:create'] },
   { href: '/personal', texto: 'Plantilla', permisos: ['invoices:read', 'invoices:create'] },
   { href: '/horas', texto: 'Horas', permisos: ['time:log_own', 'invoices:read'] },
+  { href: '/proyectos', texto: 'Proyectos', permisos: ['invoices:read', 'invoices:create'] },
   { href: '/proveedores', texto: 'Proveedores', permisos: ['invoices:read', 'invoices:create'] },
   { href: '/invitaciones', texto: 'Invitaciones', permisos: ['members:invite'] },
 ];
