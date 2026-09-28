@@ -759,7 +759,8 @@ describe('aislamiento entre tenants con RLS', () => {
       FROM pg_class
       WHERE relname IN ('tenant', 'tenant_param_version', 'membership', 'audit_log', 'invitation',
                         'vendor', 'invoice', 'invoice_line', 'contract', 'asset',
-                        'position', 'employee', 'time_entry')
+                        'position', 'employee', 'time_entry',
+                        'project', 'project_baseline', 'milestone')
       ORDER BY relname
     `);
     expect(tablas).toHaveLength(16);
