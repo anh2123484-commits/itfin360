@@ -193,6 +193,7 @@ Parque por categoría, edad, VNC, deuda técnica, próximas reposiciones y su en
 ## Fase 4 · Personal y productividad
 
 **F4-01 · Puestos y empleados** · M · Dep: F0-06
+*Hecho el 26 de septiembre.* Tablas `position` y `employee` con RLS, pantalla `/personal`, jornada en puntos básicos y prorrateo por días naturales. Sin retribución: eso es F4-02 y va cifrado aparte. Pendiente: edición y baja desde la pantalla, y el historial de cambios de puesto y jornada.
 Modelo, CRUD, FTE, altas y bajas con vigencias.
 *Aceptación:* un empleado que causa baja a mitad de año prorratea correctamente en los cálculos anuales.
 
