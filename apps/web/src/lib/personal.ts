@@ -1,7 +1,7 @@
 import { EmploymentType } from '@itfin360/db';
 import { z } from 'zod';
 
-import { ENTERO_NO_NEGATIVO, FECHA } from '@/lib/contratos';
+import { FECHA } from '@/lib/contratos';
 
 /**
  * Plantilla: validación y el prorrateo por vigencia.
