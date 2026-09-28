@@ -56,6 +56,9 @@ const A = {
   position: 'aaaaaab2-0000-4000-8000-000000000001',
   employee: 'aaaaaab3-0000-4000-8000-000000000001',
   timeEntry: 'aaaaaab4-0000-4000-8000-000000000001',
+  project: 'aaaaaab5-0000-4000-8000-000000000001',
+  baseline: 'aaaaaab6-0000-4000-8000-000000000001',
+  milestone: 'aaaaaab7-0000-4000-8000-000000000001',
 } as const;
 const B = {
   user: 'bbbbbbb1-0000-4000-8000-000000000001',
@@ -71,6 +74,9 @@ const B = {
   position: 'bbbbbbc2-0000-4000-8000-000000000001',
   employee: 'bbbbbbc3-0000-4000-8000-000000000001',
   timeEntry: 'bbbbbbc4-0000-4000-8000-000000000001',
+  project: 'bbbbbbc5-0000-4000-8000-000000000001',
+  baseline: 'bbbbbbc6-0000-4000-8000-000000000001',
+  milestone: 'bbbbbbc7-0000-4000-8000-000000000001',
 } as const;
 
 /** B tiene el doble de filas y fechas posteriores: cualquier fuga cambia counts y máximos. */
@@ -358,6 +364,80 @@ async function seed(): Promise<void> {
       },
     ],
   });
+  await migrator.project.createMany({
+    data: [
+      { id: A.project, tenantId: TENANT_A, code: 'A-PRJ-1', name: 'Proyecto de A' },
+      { id: B.project, tenantId: TENANT_B, code: 'B-PRJ-1', name: 'Proyecto de B' },
+      {
+        id: 'bbbbbbc5-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        code: 'B-PRJ-2',
+        name: 'Segundo proyecto de B',
+      },
+    ],
+  });
+  await migrator.projectBaseline.createMany({
+    data: [
+      {
+        id: A.baseline,
+        tenantId: TENANT_A,
+        projectId: A.project,
+        version: 1,
+        bacCents: 100_000,
+        startDate: FECHA_A,
+        endDate: FECHA_B,
+        reason: 'Baseline inicial',
+        approvedBy: 'Comité de A',
+      },
+      {
+        id: B.baseline,
+        tenantId: TENANT_B,
+        projectId: B.project,
+        version: 1,
+        bacCents: 200_000,
+        startDate: FECHA_B,
+        endDate: FECHA_B,
+        reason: 'Baseline inicial',
+        approvedBy: 'Comité de B',
+      },
+      {
+        id: 'bbbbbbc6-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        projectId: 'bbbbbbc5-0000-4000-8000-000000000002',
+        version: 1,
+        bacCents: 300_000,
+        startDate: FECHA_B,
+        endDate: FECHA_B,
+        reason: 'Baseline inicial',
+        approvedBy: 'Comité de B',
+      },
+    ],
+  });
+  await migrator.milestone.createMany({
+    data: [
+      {
+        id: A.milestone,
+        tenantId: TENANT_A,
+        projectId: A.project,
+        name: 'Hito único de A',
+        weightBp: 10_000,
+      },
+      {
+        id: B.milestone,
+        tenantId: TENANT_B,
+        projectId: B.project,
+        name: 'Hito único de B',
+        weightBp: 10_000,
+      },
+      {
+        id: 'bbbbbbc7-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        projectId: 'bbbbbbc5-0000-4000-8000-000000000002',
+        name: 'Hito único del segundo proyecto de B',
+        weightBp: 10_000,
+      },
+    ],
+  });
   await migrator.timeEntry.createMany({
     data: [
       {
@@ -617,6 +697,40 @@ const SONDAS: readonly SondaDeModelo[] = [
       (await db.timeEntry.updateMany({ where: { id }, data: { minutes: 1 } })).count,
     borrarPorId: async (db, id) => (await db.timeEntry.deleteMany({ where: { id } })).count,
   },
+  {
+    modelo: 'project',
+    filasDeA: 1,
+    idDeB: B.project,
+    contar: (db) => db.project.count(),
+    tenantIdsVisibles: async (db) => (await db.project.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.project.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.project.updateMany({ where: { id }, data: { name: 'Intruso' } })).count,
+    borrarPorId: async (db, id) => (await db.project.deleteMany({ where: { id } })).count,
+  },
+  {
+    modelo: 'projectBaseline',
+    filasDeA: 1,
+    idDeB: B.baseline,
+    contar: (db) => db.projectBaseline.count(),
+    tenantIdsVisibles: async (db) =>
+      (await db.projectBaseline.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.projectBaseline.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.projectBaseline.updateMany({ where: { id }, data: { bacCents: 1 } })).count,
+    borrarPorId: async (db, id) => (await db.projectBaseline.deleteMany({ where: { id } })).count,
+  },
+  {
+    modelo: 'milestone',
+    filasDeA: 1,
+    idDeB: B.milestone,
+    contar: (db) => db.milestone.count(),
+    tenantIdsVisibles: async (db) => (await db.milestone.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.milestone.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.milestone.updateMany({ where: { id }, data: { name: 'Intruso' } })).count,
+    borrarPorId: async (db, id) => (await db.milestone.deleteMany({ where: { id } })).count,
+  },
 ];
 
 /** Ejecuta `fn` en el cliente de aplicación con `app.current_tenant` fijado a `valor`. */
@@ -648,7 +762,7 @@ describe('aislamiento entre tenants con RLS', () => {
                         'position', 'employee', 'time_entry')
       ORDER BY relname
     `);
-    expect(tablas).toHaveLength(13);
+    expect(tablas).toHaveLength(16);
     for (const tabla of tablas) {
       expect(tabla, tabla.relname).toMatchObject({
         relrowsecurity: true,
@@ -664,7 +778,7 @@ describe('aislamiento entre tenants con RLS', () => {
       WHERE schemaname = 'public'
       ORDER BY tablename
     `);
-    expect(politicas).toHaveLength(13);
+    expect(politicas).toHaveLength(16);
     for (const politica of politicas) {
       expect(politica.policyname, politica.tablename).toBe('tenant_isolation');
       expect(politica.qual, politica.tablename).toContain('NULLIF');
