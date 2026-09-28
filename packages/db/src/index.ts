@@ -79,6 +79,8 @@ export {
   Plan,
   Role,
   SpendConcept,
+  TimeActivity,
+  TimeSource,
 } from './generated/prisma/enums.js';
 export type {
   AssetModel as Asset,
@@ -91,6 +93,7 @@ export type {
   MembershipModel as Membership,
   PositionModel as Position,
   TenantModel as Tenant,
+  TimeEntryModel as TimeEntry,
   TenantParamVersionModel as TenantParamVersion,
   UserModel as User,
   VendorModel as Vendor,

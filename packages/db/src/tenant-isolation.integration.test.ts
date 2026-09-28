@@ -55,6 +55,7 @@ const A = {
   asset: 'aaaaaab1-0000-4000-8000-000000000001',
   position: 'aaaaaab2-0000-4000-8000-000000000001',
   employee: 'aaaaaab3-0000-4000-8000-000000000001',
+  timeEntry: 'aaaaaab4-0000-4000-8000-000000000001',
 } as const;
 const B = {
   user: 'bbbbbbb1-0000-4000-8000-000000000001',
@@ -69,6 +70,7 @@ const B = {
   asset: 'bbbbbbc1-0000-4000-8000-000000000001',
   position: 'bbbbbbc2-0000-4000-8000-000000000001',
   employee: 'bbbbbbc3-0000-4000-8000-000000000001',
+  timeEntry: 'bbbbbbc4-0000-4000-8000-000000000001',
 } as const;
 
 /** B tiene el doble de filas y fechas posteriores: cualquier fuga cambia counts y máximos. */
@@ -356,6 +358,34 @@ async function seed(): Promise<void> {
       },
     ],
   });
+  await migrator.timeEntry.createMany({
+    data: [
+      {
+        id: A.timeEntry,
+        tenantId: TENANT_A,
+        employeeId: A.employee,
+        entryDate: FECHA_A,
+        minutes: 120,
+        activity: 'RUN',
+      },
+      {
+        id: B.timeEntry,
+        tenantId: TENANT_B,
+        employeeId: B.employee,
+        entryDate: FECHA_B,
+        minutes: 240,
+        activity: 'CHANGE',
+      },
+      {
+        id: 'bbbbbbc4-0000-4000-8000-000000000002',
+        tenantId: TENANT_B,
+        employeeId: B.employee,
+        entryDate: FECHA_B,
+        minutes: 60,
+        activity: 'INTERNAL',
+      },
+    ],
+  });
   await migrator.invitation.createMany({
     data: [
       {
@@ -576,6 +606,17 @@ const SONDAS: readonly SondaDeModelo[] = [
       (await db.employee.updateMany({ where: { id }, data: { fullName: 'Intruso' } })).count,
     borrarPorId: async (db, id) => (await db.employee.deleteMany({ where: { id } })).count,
   },
+  {
+    modelo: 'timeEntry',
+    filasDeA: 1,
+    idDeB: B.timeEntry,
+    contar: (db) => db.timeEntry.count(),
+    tenantIdsVisibles: async (db) => (await db.timeEntry.findMany()).map((row) => row.tenantId),
+    buscarPorId: (db, id) => db.timeEntry.findUnique({ where: { id } }),
+    actualizarPorId: async (db, id) =>
+      (await db.timeEntry.updateMany({ where: { id }, data: { minutes: 1 } })).count,
+    borrarPorId: async (db, id) => (await db.timeEntry.deleteMany({ where: { id } })).count,
+  },
 ];
 
 /** Ejecuta `fn` en el cliente de aplicación con `app.current_tenant` fijado a `valor`. */
@@ -604,10 +645,10 @@ describe('aislamiento entre tenants con RLS', () => {
       FROM pg_class
       WHERE relname IN ('tenant', 'tenant_param_version', 'membership', 'audit_log', 'invitation',
                         'vendor', 'invoice', 'invoice_line', 'contract', 'asset',
-                        'position', 'employee')
+                        'position', 'employee', 'time_entry')
       ORDER BY relname
     `);
-    expect(tablas).toHaveLength(12);
+    expect(tablas).toHaveLength(13);
     for (const tabla of tablas) {
       expect(tabla, tabla.relname).toMatchObject({
         relrowsecurity: true,
@@ -623,7 +664,7 @@ describe('aislamiento entre tenants con RLS', () => {
       WHERE schemaname = 'public'
       ORDER BY tablename
     `);
-    expect(politicas).toHaveLength(12);
+    expect(politicas).toHaveLength(13);
     for (const politica of politicas) {
       expect(politica.policyname, politica.tablename).toBe('tenant_isolation');
       expect(politica.qual, politica.tablename).toContain('NULLIF');
