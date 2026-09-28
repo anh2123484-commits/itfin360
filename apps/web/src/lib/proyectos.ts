@@ -318,6 +318,10 @@ const DIA_MS = 24 * 60 * 60 * 1000;
  * alternativa —pedir el reparto mensual del presupuesto— es F6-03, y hasta
  * entonces la recta es la aproximación honesta: se entiende, no inventa una
  * curva y se puede sustituir sin tocar el resto.
+ *
+ * No hace falta protegerse de una división entre cero: una baseline que empieza
+ * y acaba el mismo día tiene `inicio === fin`, y entonces cualquier fecha cae en
+ * una de las dos salidas de arriba.
  */
 export function avancePlanificado(baseline: BaselineParaCalcular, aFecha: Date): number {
   const inicio = baseline.startDate.getTime();
@@ -325,8 +329,7 @@ export function avancePlanificado(baseline: BaselineParaCalcular, aFecha: Date):
   const corte = aFecha.getTime();
   if (corte <= inicio) return 0;
   if (corte >= fin) return 1;
-  const total = fin - inicio;
-  return total === 0 ? 1 : (corte - inicio) / total;
+  return (corte - inicio) / (fin - inicio);
 }
 
 /** Días naturales de la baseline, los dos extremos incluidos. */
