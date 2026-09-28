@@ -206,6 +206,7 @@ Configuración por tenant y por año (tasa SS desglosada, jornada, vacaciones, f
 *Aceptación:* cambiar la tasa de 2027 no altera los resultados ya calculados de 2026.
 
 **F4-04 · Imputación de horas** · L · Dep: F4-01
+*Hecho a medias el 28 de septiembre.* Tabla `time_entry` con RLS, pantalla `/horas` por semanas, validación de solape y de exceso de jornada con marcado de horas extra, y marcado de retrabajo y de facturable. `externalKey` con índice único ya está puesto para que la importación sea idempotente. Pendiente: el parte semanal en rejilla, la importación CSV y el descuento de festivos y vacaciones, que necesita el calendario del tenant.
 Alta manual, parte semanal, importación CSV, marcado de retrabajo, validación de solapes y de exceso de jornada.
 *Aceptación:* no se pueden imputar más horas de las disponibles en un día sin marcarlo como extra; importación masiva idempotente.
 

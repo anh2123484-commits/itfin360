@@ -111,6 +111,23 @@ enum SpendConcept {
 }
 
 /// Organización cliente. Raíz del aislamiento: el resto de tablas cuelga de aquí.
+enum TimeActivity {
+  RUN
+  CHANGE
+  INTERNAL
+  ABSENCE
+
+  @@map("time_activity")
+}
+
+enum TimeSource {
+  MANUAL
+  CSV_IMPORT
+  CONNECTOR
+
+  @@map("time_source")
+}
+
 enum EmploymentType {
   PERMANENT
   TEMPORARY
@@ -186,6 +203,7 @@ model Tenant {
   assets        Asset[]
   positions     Position[]
   employees     Employee[]
+  timeEntries   TimeEntry[]
 
   @@map("tenant")
 }
@@ -225,6 +243,7 @@ model User {
   tenantParamVersions TenantParamVersion[]
   invitationsSent     Invitation[]
   invoicesCreated     Invoice[]
+  timeEntriesCreated  TimeEntry[]
 
   @@map("user")
 }
@@ -528,12 +547,57 @@ model Employee {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  position Position? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  position    Position?   @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  timeEntries TimeEntry[]
 
   @@unique([tenantId, employeeCode])
   @@index([tenantId, hireDate])
   @@index([tenantId, team])
   @@index([positionId])
   @@map("employee")
+}
+
+/// Imputación de horas. De aquí salen la utilización, el ratio run/change y el
+/// coste de lo que no se imputa.
+///
+/// `minutes` es un entero: media hora es 30, no 0,5. Con horas decimales, veinte
+/// minutos son 0,333… y al sumar un mes de partes el total se desvía lo
+/// suficiente como para que alguien tenga que explicar el descuadre.
+///
+/// `startMinute` son minutos desde medianoche y es opcional, porque hay equipos
+/// que apuntan «tres horas al proyecto X» sin decir cuáles. Cuando dos
+/// imputaciones del mismo día lo llevan, el solape se comprueba; cuando no, no
+/// se puede, y no se finge que sí.
+///
+/// `externalKey` con su índice único es lo que hace idempotente la importación:
+/// reimportar el mismo fichero no duplica nada.
+model TimeEntry {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  employeeId  String       @map("employee_id") @db.Uuid
+  entryDate   DateTime     @map("entry_date") @db.Date
+  minutes     Int
+  startMinute Int?         @map("start_minute")
+  activity    TimeActivity
+  service     String?
+  description String?
+  isRework    Boolean      @default(false) @map("is_rework")
+  isOvertime  Boolean      @default(false) @map("is_overtime")
+  isBillable  Boolean      @default(false) @map("is_billable")
+  source      TimeSource   @default(MANUAL)
+  externalKey String?      @map("external_key")
+  createdById String?      @map("created_by_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee  Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, externalKey])
+  @@index([tenantId, entryDate])
+  @@index([employeeId, entryDate])
+  @@index([tenantId, activity])
+  @@map("time_entry")
 }
