@@ -47,6 +47,7 @@ export const HORA = z
 
 export const altaImputacion = z.object({
   employeeId: z.uuid(),
+  projectId: z.uuid().optional(),
   entryDate: FECHA,
   minutes: DURACION,
   startMinute: HORA.optional(),
@@ -70,6 +71,7 @@ export const CAMPOS_IMPUTACION = {
   isOvertime: true,
   isBillable: true,
   employee: { select: { id: true, fullName: true, fteBp: true } },
+  project: { select: { id: true, code: true } },
 } as const;
 
 export const ETIQUETA_ACTIVIDAD: Readonly<Record<keyof typeof TimeActivity, string>> = {
