@@ -219,6 +219,7 @@ Utilización, run/change, coste por rol, coste no imputado, ratio de recuperaci�
 ## Fase 5 · Proyectos y desviaciones
 
 **F5-01 · Proyectos, baselines e hitos** · L · Dep: F4-04
+*Hecho el 28 de septiembre.* Tablas `project`, `project_baseline` y `milestone` con RLS, pantalla `/proyectos`, baseline versionada con motivo y aprobador (índice único parcial: una sola vigente por proyecto), hitos ponderados en puntos básicos que se guardan como conjunto y tienen que sumar 10000, avance real por hitos y avance previsto lineal, cuadro EVM del motor y semáforos de CPI y SPI. `time_entry` gana `project_id` opcional para que las horas puedan colgar de un proyecto. Pendiente: edición y baja de proyectos desde la pantalla, y el reparto mensual del presupuesto, que llega con F6-03.
 Modelo, CRUD, baseline versionada con motivo y aprobador, hitos ponderados, cálculo de avance.
 *Aceptación:* una re-baseline conserva la versión anterior; los pesos de hitos deben sumar 1 o el guardado falla.
 
