@@ -1,17 +1,15 @@
 import { conceptDefinition, type CostType, type SpendConcept } from '@itfin360/finance-core';
 
+import { NOMBRES_PUESTO, PERSONAS, PROVEEDORES } from '@/lib/demo-catalogo';
 import {
   CATALOGO,
   type CategoriaActivo,
   type EstadoProyecto,
   MODELOS,
   NOMBRES_HITO,
-  NOMBRES_PUESTO,
-  PERSONAS,
   PESOS_HITO,
-  PROVEEDORES,
   PROYECTOS,
-} from '@/lib/demo-catalogo';
+} from '@/lib/demo-compras';
 
 /**
  * Datos de demostración: un departamento de IT ficticio, completo y coherente.
