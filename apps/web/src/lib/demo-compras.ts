@@ -7,15 +7,24 @@ import type { Partida } from '@/lib/demo-catalogo';
  * cuando el conjunto se queda corto.
  */
 
-/** Categorías de activo que usa el conjunto. No están todas las del esquema. */
-export type CategoriaActivo =
-  | 'SERVER'
-  | 'STORAGE'
-  | 'NETWORK'
-  | 'WORKSTATION'
-  | 'LAPTOP'
-  | 'MOBILE'
-  | 'PERIPHERAL';
+/**
+ * Categorías de activo que usa el conjunto. No están todas las del esquema: el
+ * conjunto no compra software capitalizado ni licencias perpetuas como activo.
+ *
+ * Derivado del array y no escrito como unión suelta, igual que `SpendConcept`
+ * en el motor: así la lista está en un solo sitio y se puede recorrer.
+ */
+export const CATEGORIAS_ACTIVO = [
+  'SERVER',
+  'STORAGE',
+  'NETWORK',
+  'WORKSTATION',
+  'LAPTOP',
+  'MOBILE',
+  'PERIPHERAL',
+] as const;
+
+export type CategoriaActivo = (typeof CATEGORIAS_ACTIVO)[number];
 
 /** Estados de proyecto que usa el conjunto. */
 export type EstadoProyecto = 'PLANNED' | 'ACTIVE' | 'DELIVERED';
