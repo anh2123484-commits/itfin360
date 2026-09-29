@@ -82,6 +82,7 @@ const GRUPOS: readonly Grupo[] = [
     titulo: 'Administración',
     secciones: [
       { href: '/invitaciones', texto: 'Invitaciones', permisos: ['members:invite'] },
+      { href: '/demo', texto: 'Datos de demostración', permisos: ['tenant:manage'] },
       { href: '/cuenta/contrasena', texto: 'Cuenta', permisos: [] },
     ],
   },
