@@ -129,15 +129,69 @@ const NOMBRES_PUESTO = [
 ] as const;
 
 const PERSONAS = [
-  { nombre: 'Marta Ferrer Puig', puesto: 0, fteBp: 10_000, equipo: 'Dirección IT', meses: 44 },
-  { nombre: 'Jordi Sala Vidal', puesto: 1, fteBp: 10_000, equipo: 'Sistemas', meses: 32 },
-  { nombre: 'Núria Camps Roca', puesto: 1, fteBp: 10_000, equipo: 'Sistemas', meses: 19 },
-  { nombre: 'Pau Ribas Font', puesto: 2, fteBp: 10_000, equipo: 'Soporte', meses: 27 },
-  { nombre: 'Aina Soler Mas', puesto: 2, fteBp: 5_000, equipo: 'Soporte', meses: 14 },
-  { nombre: 'Marc Oliva Serra', puesto: 3, fteBp: 10_000, equipo: 'Redes', meses: 38 },
-  { nombre: 'Laia Bosch Prat', puesto: 4, fteBp: 10_000, equipo: 'Desarrollo', meses: 23 },
-  { nombre: 'Oriol Puig Gual', puesto: 4, fteBp: 8_000, equipo: 'Desarrollo', meses: 11 },
-  { nombre: 'Clara Vila Torres', puesto: 5, fteBp: 10_000, equipo: 'Seguridad', meses: 16 },
+  {
+    nombre: 'Marta Ferrer Puig',
+    puesto: 0,
+    fteBp: 10_000,
+    equipo: 'Dirección IT',
+    meses: 44,
+  },
+  {
+    nombre: 'Jordi Sala Vidal',
+    puesto: 1,
+    fteBp: 10_000,
+    equipo: 'Sistemas',
+    meses: 32,
+  },
+  {
+    nombre: 'Núria Camps Roca',
+    puesto: 1,
+    fteBp: 10_000,
+    equipo: 'Sistemas',
+    meses: 19,
+  },
+  {
+    nombre: 'Pau Ribas Font',
+    puesto: 2,
+    fteBp: 10_000,
+    equipo: 'Soporte',
+    meses: 27,
+  },
+  {
+    nombre: 'Aina Soler Mas',
+    puesto: 2,
+    fteBp: 5_000,
+    equipo: 'Soporte',
+    meses: 14,
+  },
+  {
+    nombre: 'Marc Oliva Serra',
+    puesto: 3,
+    fteBp: 10_000,
+    equipo: 'Redes',
+    meses: 38,
+  },
+  {
+    nombre: 'Laia Bosch Prat',
+    puesto: 4,
+    fteBp: 10_000,
+    equipo: 'Desarrollo',
+    meses: 23,
+  },
+  {
+    nombre: 'Oriol Puig Gual',
+    puesto: 4,
+    fteBp: 8_000,
+    equipo: 'Desarrollo',
+    meses: 11,
+  },
+  {
+    nombre: 'Clara Vila Torres',
+    puesto: 5,
+    fteBp: 10_000,
+    equipo: 'Seguridad',
+    meses: 16,
+  },
   {
     nombre: 'Ferran Mata Llop',
     puesto: 2,
@@ -149,20 +203,57 @@ const PERSONAS = [
 ] as const;
 
 const PROVEEDORES = [
-  { nombre: 'Nubaris Cloud', criticidad: 'CRITICAL' as const, pais: 'ES' },
-  { nombre: 'Teledata Iberia', criticidad: 'HIGH' as const, pais: 'ES' },
-  { nombre: 'Licencias Vega', criticidad: 'HIGH' as const, pais: 'ES' },
-  { nombre: 'Hardware Nord', criticidad: 'MEDIUM' as const, pais: 'ES' },
-  { nombre: 'Soporte Delta', criticidad: 'MEDIUM' as const, pais: 'ES' },
-  { nombre: 'Auditoría Kessler', criticidad: 'LOW' as const, pais: 'ES' },
-  { nombre: 'Formación Aula Nova', criticidad: 'LOW' as const, pais: 'ES' },
-  { nombre: 'Consultoría Baix', criticidad: 'MEDIUM' as const, pais: 'ES' },
+  {
+    nombre: 'Nubaris Cloud',
+    criticidad: 'CRITICAL' as const,
+    pais: 'ES',
+  },
+  {
+    nombre: 'Teledata Iberia',
+    criticidad: 'HIGH' as const,
+    pais: 'ES',
+  },
+  {
+    nombre: 'Licencias Vega',
+    criticidad: 'HIGH' as const,
+    pais: 'ES',
+  },
+  {
+    nombre: 'Hardware Nord',
+    criticidad: 'MEDIUM' as const,
+    pais: 'ES',
+  },
+  {
+    nombre: 'Soporte Delta',
+    criticidad: 'MEDIUM' as const,
+    pais: 'ES',
+  },
+  {
+    nombre: 'Auditoría Kessler',
+    criticidad: 'LOW' as const,
+    pais: 'ES',
+  },
+  {
+    nombre: 'Formación Aula Nova',
+    criticidad: 'LOW' as const,
+    pais: 'ES',
+  },
+  {
+    nombre: 'Consultoría Baix',
+    criticidad: 'MEDIUM' as const,
+    pais: 'ES',
+  },
 ] as const;
 
 /** Qué compra cada proveedor. Un proveedor de red no factura formación. */
-const CATALOGO: Readonly<
-  Record<string, readonly { concepto: SpendConcept; texto: string; min: number; max: number }[]>
-> = {
+interface Partida {
+  readonly concepto: SpendConcept;
+  readonly texto: string;
+  readonly min: number;
+  readonly max: number;
+}
+
+const CATALOGO: Readonly<Record<string, readonly Partida[]>> = {
   'Nubaris Cloud': [
     {
       concepto: 'CLOUD_INFRASTRUCTURE',
@@ -170,11 +261,26 @@ const CATALOGO: Readonly<
       min: 180_000,
       max: 420_000,
     },
-    { concepto: 'HOSTING', texto: 'Alojamiento web', min: 20_000, max: 60_000 },
+    {
+      concepto: 'HOSTING',
+      texto: 'Alojamiento web',
+      min: 20_000,
+      max: 60_000,
+    },
   ],
   'Teledata Iberia': [
-    { concepto: 'TELECOM', texto: 'Fibra y líneas móviles', min: 90_000, max: 140_000 },
-    { concepto: 'HARDWARE_NETWORK', texto: 'Electrónica de red', min: 120_000, max: 380_000 },
+    {
+      concepto: 'TELECOM',
+      texto: 'Fibra y líneas móviles',
+      min: 90_000,
+      max: 140_000,
+    },
+    {
+      concepto: 'HARDWARE_NETWORK',
+      texto: 'Electrónica de red',
+      min: 120_000,
+      max: 380_000,
+    },
   ],
   'Licencias Vega': [
     {
@@ -183,7 +289,12 @@ const CATALOGO: Readonly<
       min: 210_000,
       max: 260_000,
     },
-    { concepto: 'SOFTWARE_LICENSE', texto: 'Licencias de backup', min: 40_000, max: 90_000 },
+    {
+      concepto: 'SOFTWARE_LICENSE',
+      texto: 'Licencias de backup',
+      min: 40_000,
+      max: 90_000,
+    },
     {
       concepto: 'PERPETUAL_LICENSE',
       texto: 'Licencia perpetua de diseño',
@@ -192,14 +303,24 @@ const CATALOGO: Readonly<
     },
   ],
   'Hardware Nord': [
-    { concepto: 'HARDWARE_ENDUSER', texto: 'Portátiles', min: 90_000, max: 340_000 },
+    {
+      concepto: 'HARDWARE_ENDUSER',
+      texto: 'Portátiles',
+      min: 90_000,
+      max: 340_000,
+    },
     {
       concepto: 'HARDWARE_SERVER',
       texto: 'Servidor de virtualización',
       min: 480_000,
       max: 900_000,
     },
-    { concepto: 'CONSUMABLES', texto: 'Consumibles y cableado', min: 8_000, max: 30_000 },
+    {
+      concepto: 'CONSUMABLES',
+      texto: 'Consumibles y cableado',
+      min: 8_000,
+      max: 30_000,
+    },
     {
       concepto: 'RESALE_GOODS',
       texto: 'Material para reventa a cliente',
@@ -214,7 +335,12 @@ const CATALOGO: Readonly<
       min: 110_000,
       max: 180_000,
     },
-    { concepto: 'MAINTENANCE', texto: 'Mantenimiento de servidores', min: 60_000, max: 120_000 },
+    {
+      concepto: 'MAINTENANCE',
+      texto: 'Mantenimiento de servidores',
+      min: 60_000,
+      max: 120_000,
+    },
     {
       concepto: 'SLA_PENALTY',
       texto: 'Penalización por incumplimiento de SLA',
@@ -223,15 +349,40 @@ const CATALOGO: Readonly<
     },
   ],
   'Auditoría Kessler': [
-    { concepto: 'SECURITY_AUDIT', texto: 'Auditoría de seguridad', min: 250_000, max: 450_000 },
-    { concepto: 'SECURITY_SERVICES', texto: 'Vigilancia gestionada', min: 70_000, max: 130_000 },
+    {
+      concepto: 'SECURITY_AUDIT',
+      texto: 'Auditoría de seguridad',
+      min: 250_000,
+      max: 450_000,
+    },
+    {
+      concepto: 'SECURITY_SERVICES',
+      texto: 'Vigilancia gestionada',
+      min: 70_000,
+      max: 130_000,
+    },
   ],
   'Formación Aula Nova': [
-    { concepto: 'TRAINING', texto: 'Formación del equipo', min: 40_000, max: 120_000 },
+    {
+      concepto: 'TRAINING',
+      texto: 'Formación del equipo',
+      min: 40_000,
+      max: 120_000,
+    },
   ],
   'Consultoría Baix': [
-    { concepto: 'CONSULTING', texto: 'Consultoría de arquitectura', min: 180_000, max: 420_000 },
-    { concepto: 'CONTRACTOR', texto: 'Refuerzo externo por horas', min: 200_000, max: 560_000 },
+    {
+      concepto: 'CONSULTING',
+      texto: 'Consultoría de arquitectura',
+      min: 180_000,
+      max: 420_000,
+    },
+    {
+      concepto: 'CONTRACTOR',
+      texto: 'Refuerzo externo por horas',
+      min: 200_000,
+      max: 560_000,
+    },
     {
       concepto: 'PROJECT_SERVICES',
       texto: 'Servicios de implantación',
@@ -417,6 +568,27 @@ export const SEMANAS_DE_HORAS = 3;
 
 const DIVISA = 'EUR';
 
+interface ModeloActivo {
+  readonly nombre: string;
+  readonly categoria: FilaActivo['category'];
+  readonly proveedor: number;
+  readonly precio: number;
+  readonly vida: number;
+}
+
+interface PlantillaProyecto {
+  readonly codigo: string;
+  readonly nombre: string;
+  readonly servicio: string;
+  readonly estado: FilaProyecto['status'];
+  readonly jefe: number;
+  readonly bac: number;
+  readonly empiezaHace: number;
+  readonly dura: number;
+  readonly hechos: number;
+  readonly rebaseline: boolean;
+}
+
 /**
  * El departamento entero, listo para escribir.
  *
@@ -465,8 +637,8 @@ export function generarDemo(tenantId: string, hoy: Date): DatosDemo {
       // No todos los proveedores facturan todos los meses: un departamento real
       // no tiene una factura de auditoría cada treinta días.
       const partidas = CATALOGO[proveedor.nombre]!;
-      const cuantas =
-        proveedor.nombre === 'Auditoría Kessler' ? (atras % 3 === 0 ? 1 : 0) : entre(azar, 1, 2);
+      const trimestral = proveedor.nombre === 'Auditoría Kessler';
+      const cuantas = trimestral ? (atras % 3 === 0 ? 1 : 0) : entre(azar, 1, 2);
 
       for (let n = 0; n < cuantas; n += 1) {
         numeroFactura += 1;
@@ -638,14 +810,14 @@ export function generarDemo(tenantId: string, hoy: Date): DatosDemo {
     },
   ];
 
-  const MODELOS: readonly {
-    readonly nombre: string;
-    readonly categoria: FilaActivo['category'];
-    readonly proveedor: number;
-    readonly precio: number;
-    readonly vida: number;
-  }[] = [
-    { nombre: 'Portátil de técnico', categoria: 'LAPTOP', proveedor: 3, precio: 128_000, vida: 48 },
+  const MODELOS: readonly ModeloActivo[] = [
+    {
+      nombre: 'Portátil de técnico',
+      categoria: 'LAPTOP',
+      proveedor: 3,
+      precio: 128_000,
+      vida: 48,
+    },
     {
       nombre: 'Portátil de desarrollo',
       categoria: 'LAPTOP',
@@ -688,7 +860,13 @@ export function generarDemo(tenantId: string, hoy: Date): DatosDemo {
       precio: 38_000,
       vida: 60,
     },
-    { nombre: 'Teléfono de empresa', categoria: 'MOBILE', proveedor: 1, precio: 52_000, vida: 36 },
+    {
+      nombre: 'Teléfono de empresa',
+      categoria: 'MOBILE',
+      proveedor: 1,
+      precio: 52_000,
+      vida: 36,
+    },
     {
       nombre: 'Monitor de 27 pulgadas',
       categoria: 'PERIPHERAL',
@@ -721,18 +899,7 @@ export function generarDemo(tenantId: string, hoy: Date): DatosDemo {
     });
   }
 
-  const PROYECTOS: readonly {
-    readonly codigo: string;
-    readonly nombre: string;
-    readonly servicio: string;
-    readonly estado: FilaProyecto['status'];
-    readonly jefe: number;
-    readonly bac: number;
-    readonly empiezaHace: number;
-    readonly dura: number;
-    readonly hechos: number;
-    readonly rebaseline: boolean;
-  }[] = [
+  const PROYECTOS: readonly PlantillaProyecto[] = [
     {
       codigo: 'ERP26',
       nombre: 'Migración del ERP a la nube',
@@ -853,10 +1020,8 @@ export function generarDemo(tenantId: string, hoy: Date): DatosDemo {
     for (const [indice, nombre] of NOMBRES_HITO.entries()) {
       const terminado = indice < plantilla.hechos;
       const enCurso = indice === plantilla.hechos && plantilla.estado === 'ACTIVE';
-      const previsto = mesesAntes(
-        hoy,
-        plantilla.empiezaHace - Math.round(((indice + 1) * plantilla.dura) / NOMBRES_HITO.length),
-      );
+      const tramo = Math.round(((indice + 1) * plantilla.dura) / NOMBRES_HITO.length);
+      const previsto = mesesAntes(hoy, plantilla.empiezaHace - tramo);
       hitos.push({
         id: identificador(azar),
         tenantId,
@@ -913,8 +1078,14 @@ export function generarDemo(tenantId: string, hoy: Date): DatosDemo {
         const manana = Math.round(jornada * 0.55);
         const tarde = jornada - manana;
         const tramos = [
-          { inicio: 540, minutos: manana },
-          { inicio: 540 + manana + 60, minutos: tarde },
+          {
+            inicio: 540,
+            minutos: manana,
+          },
+          {
+            inicio: 540 + manana + 60,
+            minutos: tarde,
+          },
         ];
 
         for (const tramo of tramos) {
