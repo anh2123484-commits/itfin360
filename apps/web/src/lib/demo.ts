@@ -1,5 +1,18 @@
 import { conceptDefinition, type CostType, type SpendConcept } from '@itfin360/finance-core';
 
+import {
+  CATALOGO,
+  type CategoriaActivo,
+  type EstadoProyecto,
+  MODELOS,
+  NOMBRES_HITO,
+  NOMBRES_PUESTO,
+  PERSONAS,
+  PESOS_HITO,
+  PROVEEDORES,
+  PROYECTOS,
+} from '@/lib/demo-catalogo';
+
 /**
  * Datos de demostración: un departamento de IT ficticio, completo y coherente.
  *
@@ -119,279 +132,6 @@ function lunesDe(fecha: Date): Date {
   );
 }
 
-const NOMBRES_PUESTO = [
-  'Responsable de IT',
-  'Técnico de sistemas',
-  'Técnico de soporte',
-  'Administrador de redes',
-  'Desarrollador',
-  'Analista de ciberseguridad',
-] as const;
-
-const PERSONAS = [
-  {
-    nombre: 'Marta Ferrer Puig',
-    puesto: 0,
-    fteBp: 10_000,
-    equipo: 'Dirección IT',
-    meses: 44,
-  },
-  {
-    nombre: 'Jordi Sala Vidal',
-    puesto: 1,
-    fteBp: 10_000,
-    equipo: 'Sistemas',
-    meses: 32,
-  },
-  {
-    nombre: 'Núria Camps Roca',
-    puesto: 1,
-    fteBp: 10_000,
-    equipo: 'Sistemas',
-    meses: 19,
-  },
-  {
-    nombre: 'Pau Ribas Font',
-    puesto: 2,
-    fteBp: 10_000,
-    equipo: 'Soporte',
-    meses: 27,
-  },
-  {
-    nombre: 'Aina Soler Mas',
-    puesto: 2,
-    fteBp: 5_000,
-    equipo: 'Soporte',
-    meses: 14,
-  },
-  {
-    nombre: 'Marc Oliva Serra',
-    puesto: 3,
-    fteBp: 10_000,
-    equipo: 'Redes',
-    meses: 38,
-  },
-  {
-    nombre: 'Laia Bosch Prat',
-    puesto: 4,
-    fteBp: 10_000,
-    equipo: 'Desarrollo',
-    meses: 23,
-  },
-  {
-    nombre: 'Oriol Puig Gual',
-    puesto: 4,
-    fteBp: 8_000,
-    equipo: 'Desarrollo',
-    meses: 11,
-  },
-  {
-    nombre: 'Clara Vila Torres',
-    puesto: 5,
-    fteBp: 10_000,
-    equipo: 'Seguridad',
-    meses: 16,
-  },
-  {
-    nombre: 'Ferran Mata Llop',
-    puesto: 2,
-    fteBp: 10_000,
-    equipo: 'Soporte',
-    meses: 30,
-    bajaHace: 4,
-  },
-] as const;
-
-const PROVEEDORES = [
-  {
-    nombre: 'Nubaris Cloud',
-    criticidad: 'CRITICAL' as const,
-    pais: 'ES',
-  },
-  {
-    nombre: 'Teledata Iberia',
-    criticidad: 'HIGH' as const,
-    pais: 'ES',
-  },
-  {
-    nombre: 'Licencias Vega',
-    criticidad: 'HIGH' as const,
-    pais: 'ES',
-  },
-  {
-    nombre: 'Hardware Nord',
-    criticidad: 'MEDIUM' as const,
-    pais: 'ES',
-  },
-  {
-    nombre: 'Soporte Delta',
-    criticidad: 'MEDIUM' as const,
-    pais: 'ES',
-  },
-  {
-    nombre: 'Auditoría Kessler',
-    criticidad: 'LOW' as const,
-    pais: 'ES',
-  },
-  {
-    nombre: 'Formación Aula Nova',
-    criticidad: 'LOW' as const,
-    pais: 'ES',
-  },
-  {
-    nombre: 'Consultoría Baix',
-    criticidad: 'MEDIUM' as const,
-    pais: 'ES',
-  },
-] as const;
-
-/** Qué compra cada proveedor. Un proveedor de red no factura formación. */
-interface Partida {
-  readonly concepto: SpendConcept;
-  readonly texto: string;
-  readonly min: number;
-  readonly max: number;
-}
-
-const CATALOGO: Readonly<Record<string, readonly Partida[]>> = {
-  'Nubaris Cloud': [
-    {
-      concepto: 'CLOUD_INFRASTRUCTURE',
-      texto: 'Infraestructura cloud',
-      min: 180_000,
-      max: 420_000,
-    },
-    {
-      concepto: 'HOSTING',
-      texto: 'Alojamiento web',
-      min: 20_000,
-      max: 60_000,
-    },
-  ],
-  'Teledata Iberia': [
-    {
-      concepto: 'TELECOM',
-      texto: 'Fibra y líneas móviles',
-      min: 90_000,
-      max: 140_000,
-    },
-    {
-      concepto: 'HARDWARE_NETWORK',
-      texto: 'Electrónica de red',
-      min: 120_000,
-      max: 380_000,
-    },
-  ],
-  'Licencias Vega': [
-    {
-      concepto: 'SAAS_SUBSCRIPTION',
-      texto: 'Suscripciones de ofimática',
-      min: 210_000,
-      max: 260_000,
-    },
-    {
-      concepto: 'SOFTWARE_LICENSE',
-      texto: 'Licencias de backup',
-      min: 40_000,
-      max: 90_000,
-    },
-    {
-      concepto: 'PERPETUAL_LICENSE',
-      texto: 'Licencia perpetua de diseño',
-      min: 150_000,
-      max: 240_000,
-    },
-  ],
-  'Hardware Nord': [
-    {
-      concepto: 'HARDWARE_ENDUSER',
-      texto: 'Portátiles',
-      min: 90_000,
-      max: 340_000,
-    },
-    {
-      concepto: 'HARDWARE_SERVER',
-      texto: 'Servidor de virtualización',
-      min: 480_000,
-      max: 900_000,
-    },
-    {
-      concepto: 'CONSUMABLES',
-      texto: 'Consumibles y cableado',
-      min: 8_000,
-      max: 30_000,
-    },
-    {
-      concepto: 'RESALE_GOODS',
-      texto: 'Material para reventa a cliente',
-      min: 120_000,
-      max: 300_000,
-    },
-  ],
-  'Soporte Delta': [
-    {
-      concepto: 'THIRD_PARTY_SUPPORT',
-      texto: 'Soporte de segundo nivel',
-      min: 110_000,
-      max: 180_000,
-    },
-    {
-      concepto: 'MAINTENANCE',
-      texto: 'Mantenimiento de servidores',
-      min: 60_000,
-      max: 120_000,
-    },
-    {
-      concepto: 'SLA_PENALTY',
-      texto: 'Penalización por incumplimiento de SLA',
-      min: 15_000,
-      max: 40_000,
-    },
-  ],
-  'Auditoría Kessler': [
-    {
-      concepto: 'SECURITY_AUDIT',
-      texto: 'Auditoría de seguridad',
-      min: 250_000,
-      max: 450_000,
-    },
-    {
-      concepto: 'SECURITY_SERVICES',
-      texto: 'Vigilancia gestionada',
-      min: 70_000,
-      max: 130_000,
-    },
-  ],
-  'Formación Aula Nova': [
-    {
-      concepto: 'TRAINING',
-      texto: 'Formación del equipo',
-      min: 40_000,
-      max: 120_000,
-    },
-  ],
-  'Consultoría Baix': [
-    {
-      concepto: 'CONSULTING',
-      texto: 'Consultoría de arquitectura',
-      min: 180_000,
-      max: 420_000,
-    },
-    {
-      concepto: 'CONTRACTOR',
-      texto: 'Refuerzo externo por horas',
-      min: 200_000,
-      max: 560_000,
-    },
-    {
-      concepto: 'PROJECT_SERVICES',
-      texto: 'Servicios de implantación',
-      min: 300_000,
-      max: 700_000,
-    },
-  ],
-};
-
 const IVA_BP = 2_100;
 
 export interface FilaPuesto {
@@ -475,14 +215,7 @@ export interface FilaActivo {
   readonly tenantId: string;
   readonly vendorId: string;
   readonly name: string;
-  readonly category:
-    | 'SERVER'
-    | 'STORAGE'
-    | 'NETWORK'
-    | 'WORKSTATION'
-    | 'LAPTOP'
-    | 'MOBILE'
-    | 'PERIPHERAL';
+  readonly category: CategoriaActivo;
   readonly serialNumber: string;
   readonly acquisitionCents: number;
   readonly usefulLifeMonths: number;
@@ -498,7 +231,7 @@ export interface FilaProyecto {
   readonly tenantId: string;
   readonly code: string;
   readonly name: string;
-  readonly status: 'PLANNED' | 'ACTIVE' | 'DELIVERED';
+  readonly status: EstadoProyecto;
   readonly managerId: string;
   readonly service: string;
   readonly sponsor: string;
@@ -567,27 +300,6 @@ export const MESES_DE_HISTORIA = 6;
 export const SEMANAS_DE_HORAS = 3;
 
 const DIVISA = 'EUR';
-
-interface ModeloActivo {
-  readonly nombre: string;
-  readonly categoria: FilaActivo['category'];
-  readonly proveedor: number;
-  readonly precio: number;
-  readonly vida: number;
-}
-
-interface PlantillaProyecto {
-  readonly codigo: string;
-  readonly nombre: string;
-  readonly servicio: string;
-  readonly estado: FilaProyecto['status'];
-  readonly jefe: number;
-  readonly bac: number;
-  readonly empiezaHace: number;
-  readonly dura: number;
-  readonly hechos: number;
-  readonly rebaseline: boolean;
-}
 
 /**
  * El departamento entero, listo para escribir.
@@ -810,72 +522,6 @@ export function generarDemo(tenantId: string, hoy: Date): DatosDemo {
     },
   ];
 
-  const MODELOS: readonly ModeloActivo[] = [
-    {
-      nombre: 'Portátil de técnico',
-      categoria: 'LAPTOP',
-      proveedor: 3,
-      precio: 128_000,
-      vida: 48,
-    },
-    {
-      nombre: 'Portátil de desarrollo',
-      categoria: 'LAPTOP',
-      proveedor: 3,
-      precio: 189_000,
-      vida: 48,
-    },
-    {
-      nombre: 'Sobremesa de oficina',
-      categoria: 'WORKSTATION',
-      proveedor: 3,
-      precio: 94_000,
-      vida: 60,
-    },
-    {
-      nombre: 'Servidor de virtualización',
-      categoria: 'SERVER',
-      proveedor: 3,
-      precio: 780_000,
-      vida: 60,
-    },
-    {
-      nombre: 'Cabina de almacenamiento',
-      categoria: 'STORAGE',
-      proveedor: 3,
-      precio: 620_000,
-      vida: 72,
-    },
-    {
-      nombre: 'Conmutador de acceso',
-      categoria: 'NETWORK',
-      proveedor: 1,
-      precio: 145_000,
-      vida: 84,
-    },
-    {
-      nombre: 'Punto de acceso wifi',
-      categoria: 'NETWORK',
-      proveedor: 1,
-      precio: 38_000,
-      vida: 60,
-    },
-    {
-      nombre: 'Teléfono de empresa',
-      categoria: 'MOBILE',
-      proveedor: 1,
-      precio: 52_000,
-      vida: 36,
-    },
-    {
-      nombre: 'Monitor de 27 pulgadas',
-      categoria: 'PERIPHERAL',
-      proveedor: 3,
-      precio: 31_000,
-      vida: 60,
-    },
-  ];
-
   const activos: FilaActivo[] = [];
   for (let i = 0; i < 24; i += 1) {
     const modelo = uno(azar, MODELOS);
@@ -898,72 +544,6 @@ export function generarDemo(tenantId: string, hoy: Date): DatosDemo {
       hasBudgetLine: i % 4 === 0,
     });
   }
-
-  const PROYECTOS: readonly PlantillaProyecto[] = [
-    {
-      codigo: 'ERP26',
-      nombre: 'Migración del ERP a la nube',
-      servicio: 'Aplicaciones',
-      estado: 'ACTIVE',
-      jefe: 6,
-      bac: 12_500_000,
-      empiezaHace: 7,
-      dura: 12,
-      hechos: 2,
-      rebaseline: true,
-    },
-    {
-      codigo: 'RED26',
-      nombre: 'Renovación de la red de sedes',
-      servicio: 'Infraestructura',
-      estado: 'ACTIVE',
-      jefe: 5,
-      bac: 6_800_000,
-      empiezaHace: 4,
-      dura: 8,
-      hechos: 2,
-      rebaseline: false,
-    },
-    {
-      codigo: 'SEG26',
-      nombre: 'Implantación de ISO 27001',
-      servicio: 'Seguridad',
-      estado: 'ACTIVE',
-      jefe: 8,
-      bac: 4_200_000,
-      empiezaHace: 5,
-      dura: 14,
-      hechos: 1,
-      rebaseline: false,
-    },
-    {
-      codigo: 'PUE26',
-      nombre: 'Renovación del puesto de trabajo',
-      servicio: 'Puesto de trabajo',
-      estado: 'DELIVERED',
-      jefe: 3,
-      bac: 3_100_000,
-      empiezaHace: 11,
-      dura: 6,
-      hechos: 4,
-      rebaseline: false,
-    },
-    {
-      codigo: 'BI26',
-      nombre: 'Cuadro de mando de negocio',
-      servicio: 'Datos',
-      estado: 'PLANNED',
-      jefe: 6,
-      bac: 2_400_000,
-      empiezaHace: -1,
-      dura: 9,
-      hechos: 0,
-      rebaseline: false,
-    },
-  ];
-
-  const NOMBRES_HITO = ['Análisis', 'Diseño', 'Construcción', 'Pruebas'] as const;
-  const PESOS_HITO = [2_000, 2_000, 4_000, 2_000] as const;
 
   const proyectos: FilaProyecto[] = [];
   const baselines: FilaBaseline[] = [];
