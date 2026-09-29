@@ -324,6 +324,19 @@ Endpoints del doc 03, API keys por tenant, `Idempotency-Key`, límite de tasa, e
 *Aceptación:* dos POST con la misma clave de idempotencia crean un solo recurso; el spec OpenAPI valida.
 
 **F8-04 · Datos semilla y modo demo** · M · Dep: F6-07
+*Primera entrega, hecha el 29 de septiembre.* Pantalla `/demo`, sólo para quien administra la organización, con un botón que carga un departamento de IT ficticio completo y otro que lo borra entero. Seis meses de facturas de ocho proveedores, diez personas con puestos y jornadas, seis contratos recurrentes, veinticuatro activos, cinco proyectos con baselines e hitos y tres semanas de partes de trabajo. Unas seiscientas filas, reproducibles: el azar sale de un generador con semilla y la semilla sale del identificador de la organización.
+
+Cuatro decisiones se apartan de la ficha original:
+
+1. **No es un `pnpm db:seed`, es un botón.** Un script de consola sirve a quien tiene el repositorio y la base delante. Quien necesita probar el producto entra por el navegador, y un script que no puede ejecutar es lo mismo que no tener datos.
+2. **Se siembra en la organización activa, no en un tenant aparte.** El alta de organizaciones está cerrada por lista blanca desde F0-12, así que crear un tenant de demostración necesitaría abrirla.
+3. **Todo lleva la marca `DEMO`** en un campo filtrable de cada tabla (nombre, número de factura, código de empleado, número de serie, clave externa). Por ahí se borra entero y por ahí se distingue de lo real. Datos de prueba que no se pueden distinguir de los de verdad son peores que no tener datos de prueba.
+4. **Los proveedores son inventados.** Ninguna factura del conjunto lleva el nombre de una empresa que exista: una factura ficticia a nombre de alguien real es un documento falso, aunque esté en una base de pruebas. Hay un test que lo comprueba.
+
+El volumen es menor que el de la ficha (seiscientas filas en vez de tres mil) porque la siembra corre dentro de una acción de servidor con tiempo máximo. Subirlo pide el job en segundo plano de F2-04.
+
+*Pendiente:* dieciocho meses de historia, el volumen completo, y la comprobación de que el Viability Score cae en la banda esperada, que necesita F6-06.
+
 Tenant de demostración: 35 empleados, 18 meses, ~2.500 facturas, 400 activos, 12 proyectos (dos con retraso severo), todo ficticio y reproducible con semilla fija.
 *Aceptación:* `pnpm db:seed` produce siempre el mismo dataset y el Viability Score sale en la banda esperada por el test.
 
