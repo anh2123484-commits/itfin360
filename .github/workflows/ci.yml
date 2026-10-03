@@ -74,11 +74,11 @@ jobs:
     # posible, con la imagen espejada en el registro de GitHub para no depender
     # de que un tercero siga publicando la misma etiqueta dentro de dos años.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
