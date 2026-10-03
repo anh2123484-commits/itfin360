@@ -1,0 +1,14 @@
+# Configuración de gitleaks: las reglas por defecto y una sola excepción.
+#
+# `.env.example` lleva contraseñas de los roles de la base de datos local que
+# levanta `pnpm db:up` (itfin360_app, itfin360_migrator). No sirven fuera del
+# portátil de quien desarrolla y tienen que estar escritas para que el entorno
+# arranque sin preguntar nada. Cualquier otro fichero con algo parecido a un
+# secreto para el CI.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Credenciales de desarrollo local documentadas"
+paths = ['''^\.env\.example$''']
