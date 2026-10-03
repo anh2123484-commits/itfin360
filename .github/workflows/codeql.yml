@@ -26,6 +26,10 @@ concurrency:
 jobs:
   analyze:
     name: analizar javascript-typescript
+    # En un repositorio privado del plan gratuito no hay escaneo de código y el
+    # paso de publicar fallaría. Mientras sea público, CodeQL sigue corriendo;
+    # cuando pase a privado, lo cubre `seguridad.yml` (Semgrep y gitleaks).
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
